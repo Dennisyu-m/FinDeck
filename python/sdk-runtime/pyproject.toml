@@ -5,17 +5,17 @@ build-backend = "hatchling.build"
 [project]
 name = "deepseek-harness-runtime-bin"
 version = "1.0.0-alpha.1"
-description = "Bundled dsh CLI runtime for the DeepSeek Harness Python SDK"
+description = "Bundled dsh CLI runtime for the FinDeck Python SDK"
 readme = "README.md"
 requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Dennisyu" }]
 
 [project.urls]
-Homepage = "https://github.com/Dennisdan1104/FinDeck"
-Documentation = "https://github.com/Dennisdan1104/FinDeck/blob/master/python/sdk-runtime/README.md"
-Issues = "https://github.com/Dennisdan1104/FinDeck/issues"
-Source = "https://github.com/Dennisdan1104/FinDeck"
+Homepage = "https://github.com/Dennisyu-m/FinDeck"
+Documentation = "https://github.com/Dennisyu-m/FinDeck/blob/master/python/sdk-runtime/README.md"
+Issues = "https://github.com/Dennisyu-m/FinDeck/issues"
+Source = "https://github.com/Dennisyu-m/FinDeck"
 
 [project.scripts]
 dsh = "deepseek_harness_runtime:main"

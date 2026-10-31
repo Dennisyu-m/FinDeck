@@ -2,7 +2,9 @@
 
 English | [中文](README.zh.md)
 
-An Electron thin shell: it puts the existing FinDeck Web UI in a resident desktop window and adds the three things a browser cannot provide -- a resident tray icon, a global hotkey, and opt-in autostart. The shell draws no UI of its own; it reuses the local server and the existing Web UI. It neither depends on nor ports upstream's `apps/desktop`.
+The Electron desktop shell hosts FinDeck's local Web UI and adds a tray icon, a global hotkey, and optional autostart. Research, assets, and automation run in the local server; the shell reuses that interface.
+
+Source changes and downloadable installer builds are separate. See the [distribution table](../../README.md#source-and-windows-download) before choosing a build; a source update does not update an existing installer.
 
 | Path | Contents |
 |---|---|

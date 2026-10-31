@@ -2,28 +2,25 @@
 
 [English](README.md) | 中文
 
-**FinDeck** 是一个 AI 主导的金融研究 harness——AI 是研究员，FinDeck 是它的驾驶舱，你是随时可以接管的副驾驶。
+**FinDeck** 是一个开源 AI 金融研究工作台。在本地运行、接入自己的模型，通过对话或定时任务分析数据、维护可复用的研究资产并产出报告。
 
 它基于 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)（MIT，"一切皆插件"的开源 Agent 运行时）改造，叠加了一层金融能力：
 
-- **数据，一条命令就位** —— 一个装好 `akshare`（A股/宏观/新闻）、`yfinance`（全球股票/外汇/商品）、`ccxt`（加密货币交易所）、`baostock` 的 Python 环境，由 [`finance/python/setup-env.sh`](finance/python/setup-env.sh) 创建（680 MB 的 venv 本身不入库，新克隆默认没有）。
-- **模型，按需安装** —— 不预装任何重型建模库。内置 skill 就是"模型地图"：任务需要线性回归、梯度树、LSTM/Transformer 时序模型或零样本预测（Chronos/TimesFM）时，AI 自己查地图、装包、跑起来。
-- **Skill 即手册** —— 十四个金融 skill 教会 AI：每类数据去哪拿、什么任务配什么模型、怎么回测不自欺、研究报告怎么写。
-- **AI 主导，人类监督** —— AI 自己决定查哪个数据源、用哪个工具、何时上网搜索；每一步都在 Web UI 里可见、可审批、可打断。
+- **用数据和模型开展研究** —— 单独安装的 Python 环境提供 `akshare`、`yfinance`、`ccxt`、`baostock` 和经典建模工具，重型模型库按任务需要安装。
+- **复用研究资产** —— 数据集、模型、工具和报告按版本归档，已有资产可以组合成一张 Work 研究台。
+- **安排重复工作** —— 让程序定时运行已声明的资产流水线，或开启无人值守值班，计算信号后按任务需要调用 AI 解读。
+- **查看依据与评审** —— 查看运行记录和已记录的来源版本，从报告继续追问、跟踪命题，并使用圆桌或红蓝对抗评审。
 
-> 开发者预览版——会跟随上游出现不兼容变更。运行前请阅读[安全说明](SAFETY.zh.md)。
+> 开发者预览版，API 和存储格式可能变化。FinDeck 的产出不构成投资建议，运行前请阅读[安全说明](SAFETY.zh.md)。
 
-> FinDeck 的产出不构成投资建议。运行前请阅读 [SAFETY.zh.md](SAFETY.zh.md)。
+## 源码与 Windows 下载
 
-## 下载
+| 分发方式 | 版本 | 内容 |
+|---|---|---|
+| 当前 `master` 源码 | `1.0.0-alpha.1` | 包含 2026-10-31 的自动化与值班源码更新，按下方快速开始构建 |
+| [Windows 安装包](https://github.com/Dennisyu-m/FinDeck/releases/tag/v0.1.3-alpha.1) | `0.1.3-alpha.1` | 已有桌面构建，不包含之后的源码更新 |
 
-到 [Releases](https://github.com/Dennisdan1104/FinDeck/releases) 页面下载 Windows 安装包，文件名形如 `FinDeck.Setup.*.exe`。
-
-安装包未签名，Windows SmartScreen 会提示“未知发布者”。这是本版本的预期行为：点 **更多信息 → 仍要运行** 即可。
-
-装好就能直接用桌面版。安装包不内置重型组件——Python 数据环境等大组件在 **设置 → 环境与组件** 里按需下载，不必提前准备。
-
-想从源码构建，或参与 FinDeck 本身的开发，见下方「快速开始」。
+安装包未随本次源码更新重建。它内置 Node.js 运行时，Python 环境等大组件通过**设置 → 环境与组件**下载。安装包未签名，Windows 可能显示发布者警告。使用任一分发方式都需要配置自己的模型。
 
 ## 快速开始
 
@@ -34,7 +31,7 @@
 环境要求：Node.js ≥ 22.19（或 ≥ 24）、Python ≥ 3.10、pnpm ≥ 11。
 
 ```sh
-git clone https://github.com/Dennisdan1104/FinDeck.git findeck && cd findeck
+git clone https://github.com/Dennisyu-m/FinDeck.git findeck && cd findeck
 pnpm install
 pnpm run build
 
@@ -78,6 +75,7 @@ FinDeck 与原版 DeepSeek Harness 安装互不干扰：默认端口 **3081**（
 | `findeck-pipeline` | 资产流水线：`pipeline.yaml` 格式与校验、步骤脚本协议（marker/参数/产物路径）、手动跑法与 harness 定时跑法、失败语义与版本递增纪律 |
 | `findeck-asset-face` | 生成资产脸：8 种组件的词汇表、各类资产的好脸规则、存放位置与 manifest 声明、`validate_face.py` 校验 |
 | `findeck-workbench` | Work 模式：Work/Free 判定、`workbench.yaml` 格式、开场的资产锚 brief、运行资产并汇报的纪律 |
+| `findeck-desk` | 无人值守值班：确定性信号、四段式报告、来源记录与执行权限 |
 
 Skills 位于 [`finance/skills/`](finance/skills/)，是纯 Markdown，通过 harness 的 skill 系统挂载。想加自己的 skill？在那个目录新建一个放 `SKILL.md` 的文件夹即可。
 
@@ -98,7 +96,7 @@ Skills 位于 [`finance/skills/`](finance/skills/)，是纯 Markdown，通过 ha
 ## 资产、研究台与评审
 
 - **资产中枢** —— `research-assets` 页面读取全局资产库：资产以卡片墙或紧凑表格呈现，每个版本的 `face.json` 经 `runVerb` 桥逐组件渲染，血缘图基于快照的依赖边，reports 页签带命题条，mode-flows 页签按声明的步骤给 preset 分组；**交给 AI** 会新建一个以资产 brief 开场的会话。
-- **研究台（Work 模式）** —— 一张研究台把一组已入库资产与其运行约定绑在一起。[`finance/workbenches/hs300-research.yaml`](finance/workbenches/hs300-research.yaml) 是随仓库附带的那个：会话按名字进入，运行资产声明的 verb 而不是从零重做，每次修改都归档为新版本。
+- **研究台（Work 模式）** —— 在资产中枢选择资产，创建可复用的研究台。Work 定义把已归档资产与运行约定绑在一起，会话运行资产声明的动作，并把修改归档为新版本。[`finance/workbenches/hs300-research.yaml`](finance/workbenches/hs300-research.yaml) 是随仓库附带的示例，需要库内已有它引用的资产。
 - **圆桌** —— 多个发言身份共享一份对话记录，支持内置或自定义座次、`shallow`/`deep` 两档研究深度、@ 点名、打断、从已有会话播种的圆桌，关闭后的圆桌归档供 `roundtable_list` 与 `roundtable_read` 读取。
 - **红蓝对抗评审** —— `/rb-check <报告路径|命题id>` 与 agent 可调用的 `rb_check` 把红队攻击、蓝队回应依次注入当前会话；两段 prompt 都可在设置里修改。
 - **命题跟踪** —— `thesis_list`、`thesis_show`、`thesis_write`、`thesis_mark` 把报告的结论落成一份带指标、到期日与 hit/miss 累计评分的 manifest。
@@ -107,6 +105,18 @@ Skills 位于 [`finance/skills/`](finance/skills/)，是纯 Markdown，通过 ha
 - **桌面壳** —— [`apps/desktop/`](apps/desktop/) 用 Electron 窗口承载本地 Web UI，带托盘图标、全局热键 `Alt+Shift+D` 与可选开机自启；它启动的服务与 `start-findeck.ps1` 相同，所以关掉窗口不影响正在跑的会话。
 
 金融层自身的清单见 [`finance/README.zh.md`](finance/README.zh.md)，生成的工具 schema 见 [`docs/tool-catalog.zh.md`](docs/tool-catalog.zh.md)。
+
+## 定时任务与值班
+
+| 入口 | 谁执行 | 结果 |
+|---|---|---|
+| 定时任务 | 程序执行已声明的流水线步骤，不调用模型解读 | 更新资产并留下流水线运行记录 |
+| Work 模式 | 你在会话中与 AI 围绕所选资产协作 | 交互式分析和新的资产版本 |
+| 值班 | 程序计算信号，AI 按任务需要解读 | 运行详情、报告、追问会话和反馈 |
+
+在**设置 → 自动化**分别控制定时任务和值班。定时任务默认开启；值班默认关闭，需要已配置的模型和金融 Python 环境。新任务需要使用库内已有资产。无人值守工作需要宿主进程持续运行。
+
+值班页提供任务编辑、启停、立即运行、取消和运行／报告历史。报告分为要点、异动解读、命题复检、待你决策四段；AI 解读失败时，可以从信号结果产出无解读版报告。反馈与成绩单描述研究活动，不代表投资收益。配置见 [CONFIGURATION.md](CONFIGURATION.md#自动化与会话提醒)，服务参考见[值班](docs/subsystems/desk.zh.md)。
 
 ## 目录结构
 

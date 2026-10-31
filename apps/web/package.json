@@ -5,7 +5,7 @@
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dennisdan1104/FinDeck.git",
+    "url": "git+https://github.com/Dennisyu-m/FinDeck.git",
     "directory": "apps/web"
   },
   "type": "module",

@@ -2,7 +2,7 @@
 
 English | [中文](README.zh.md)
 
-This directory holds everything FinDeck layers on top of the upstream harness, in these parts:
+This directory provides FinDeck's financial data environment, research skills, asset tools, and reusable task definitions. For the product overview and the difference between current source and the downloadable installer, see the [root README](../README.md).
 
 | Path | Contents |
 |---|---|
@@ -10,7 +10,7 @@ This directory holds everything FinDeck layers on top of the upstream harness, i
 | `pipelines/` | Scheduled asset pipelines (`<name>.yaml` definitions + step scripts): `daily-refresh` (panel → model → report) and `weekly-healthcheck` (asset health report) |
 | `face-spec/` | Asset-face spec: `face.schema.json` + `validate_face.py` + examples, and `verb-bridge.md`, the protocol the face uses to run library verbs |
 | `workbenches/` | Shipped Work-mode definitions (`<name>.yaml`): a named asset set plus its run conventions, read by `python -m findeck.workbench` (`list`/`show`/`validate`); user-created definitions live in `<harness home>/workbenches/` and shadow a shipped name |
-| `python/findeck/` | Built-in toolkit modules: `assets` (global asset library), `background` (detached run records shared by the `verb_bridge` and `pipeline` CLIs), `charts` (chart factory), `desk` (desk-task yaml validator), `pipeline` (pipeline.yaml validator/executor), `quickmodels` (unified modeling), `snapshot` (data snapshots), `verb_bridge` (face verb execution bridge), `workbench` (workbench.yaml validator and brief generator) |
+| `python/findeck/` | Built-in toolkit modules: `assets` (global asset library), `background` (detached run records shared by the `verb_bridge` and `pipeline` CLIs), `charts` (chart factory), `desk` (task validation, deterministic signals, report archiving), `pipeline` (pipeline.yaml validator/executor), `quickmodels` (unified modeling), `snapshot` (data snapshots), `verb_bridge` (face verb execution bridge), `workbench` (workbench.yaml validator and brief generator) |
 | `python/.venv/` | Data environment (created by the setup scripts; registers the findeck package via `.pth`) |
 | `python/requirements-data.txt` | Preinstalled list, with upper bounds (data + sklearn/lightgbm/statsmodels) |
 | `python/setup-env.ps1` / `.sh` | Idempotent bootstrap (Tsinghua mirror first, `FD_PIP_INDEX` overrides) |
@@ -29,7 +29,17 @@ This directory holds everything FinDeck layers on top of the upstream harness, i
 2. **Skills only point the way; they don't ship payloads.** Every skill is plain Markdown:
    interface names, parameters, code templates, and known pitfalls. The AI can act after
    reading, and humans can read and maintain them directly.
-3. **Minimal intrusion upstream.** The finance layer reaches a session through named rows in the shipped compositions, not through changes to harness packages: `packages/bundle/base/cordis.patch.yml` points skill-filesystem's `customSkillDirs` at `finance/skills/` and lists the FinDeck plugins (`tool-asset-library`, `tool-thesis`, `tool-memory`, `redblue`, `roundtable`, `tool-roundtable`), and each agent preset under `packages/preset/agent-presets/presets/` mounts the same skills directory on its own skill-filesystem row. Everything else the finance layer contributes is new files, so it carries across upstream updates; the composition and the plugin loading rules are documented in [docs/architecture.md](../docs/architecture.md).
+3. **Compose finance capabilities as plugins.** Bundles mount the finance skills and asset, thesis, memory, and review services. A shared host scheduler runs pipelines and desk tasks, and a dedicated `desk` profile composes unattended execution. Composition and extension points are documented in [the architecture guide](../docs/architecture.md).
+
+## Research and automation entry points
+
+| Entry | Definition | Use |
+|---|---|---|
+| Asset pipeline | `finance/pipelines/*.yaml` and referenced step scripts | Repeat declared processing steps and archive their outputs |
+| Work research setup | Shipped `finance/workbenches/*.yaml` or user definitions under `<home>/workbenches/` | Reuse selected assets in an interactive research conversation |
+| Value-desk task | User definitions under `<home>/desk/tasks/` | Calculate signals and produce unattended research reports |
+
+The shared scheduler and desk service run inside the Web host. Configure the independent switches through [Automation settings](../CONFIGURATION.md#自动化与会话提醒). Task management, report records, feedback, and limitations are documented in the [value-desk reference](../docs/subsystems/desk.md).
 
 ## Skills
 

@@ -18,9 +18,17 @@ Click **Choose workspace**, add the project directory where you started `dsh`, a
 
 Start a session and send:
 
-> Summarize this repository and identify its main packages.
+> Check the finance data environment and list reusable assets with their data dates. Report missing data instead of inventing values.
 
 The agent can read and edit workspace files, run commands, delegate work, and maintain a plan. The Web UI asks before operations that require approval under the active permission policy.
+
+## Reuse and automate research
+
+- Open the asset hub to inspect existing datasets, models, tools, and reports. Select assets to create a Work research setup.
+- Open **Settings → Automation** to enable or disable scheduled pipelines and the value desk independently. The current source enables scheduled pipelines by default and leaves the value desk off.
+- With the value desk enabled, create a task from the page using assets already in your library. Review the run and report history, then ask follow-up questions from a report. Unattended tasks require the Web host to stay running.
+
+Read the [finance-layer guide](../../../finance/README.md) for the available definitions and the [root README](../../../README.md#source-and-windows-download) for source and installer availability.
 
 ## Continue
 

@@ -23,7 +23,7 @@ import {
   splitMarkdownUrlTarget,
 } from './markdown.ts'
 
-const REPOSITORY_URL = 'https://github.com/deepseek-ai/deepseek-harness'
+const REPOSITORY_URL = 'https://github.com/Dennisyu-m/FinDeck'
 const root = resolve(import.meta.dirname, '..')
 const generatedRoot = resolve(root, 'website/.generated')
 
@@ -55,11 +55,10 @@ export interface RewriteMarkdownOptions {
   repositoryRef: string
   /**
    * Place one referenced image beside the projected page and return the URL to
-   * reach it from that page. A GitHub raw URL cannot serve this repository —
-   * `raw.githubusercontent.com` answers 404 for a private one, and no reader of
-   * the site is authenticated to it — so an image travels into the generated
-   * tree and Vite bundles it like any other site asset. Omitted by callers that
-   * only rewrite text, which then leave images pointing at the repository.
+   * reach it from that page. The image travels into the generated tree and
+   * Vite bundles it so site rendering does not depend on GitHub raw-file
+   * permissions. Omitted by callers that only rewrite text, which then leave
+   * images pointing at the repository.
    */
   placeImage?: (absPath: string) => string
 }
@@ -140,7 +139,7 @@ function githubTarget(
   image: boolean,
 ): string {
   const path = repoPath(absPath, repoRoot)
-  if (image) return `https://raw.githubusercontent.com/deepseek-ai/deepseek-harness/${repositoryRef}/${path}${suffix}`
+  if (image) return `https://raw.githubusercontent.com/Dennisyu-m/FinDeck/${repositoryRef}/${path}${suffix}`
   const kind = lstatSync(absPath).isDirectory() ? 'tree' : 'blob'
   const lineSuffix = line === undefined ? suffix : `#L${line}`
   return `${REPOSITORY_URL}/${kind}/${repositoryRef}/${path}${lineSuffix}`

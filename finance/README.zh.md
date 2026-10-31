@@ -2,7 +2,7 @@
 
 [English](README.md) | 中文
 
-这个目录是 FinDeck 在上游 harness 之上叠加的全部金融能力，分几块：
+这个目录提供 FinDeck 的金融数据环境、研究技能、资产工具和可复用的任务定义。产品概览，以及当前源码与可下载安装包的区别，见[根目录 README](../README.zh.md)。
 
 | 路径 | 内容 |
 |---|---|
@@ -10,7 +10,7 @@
 | `pipelines/` | 定时资产流水线（`<名字>.yaml` 定义 + 步骤脚本）：`daily-refresh`（面板 → 模型 → 日报）、`weekly-healthcheck`（资产体检报告） |
 | `face-spec/` | 资产脸规范：`face.schema.json` + `validate_face.py` + examples，以及 `verb-bridge.md`（脸执行库内 verb 的协议） |
 | `workbenches/` | 随产品交付的 Work 模式定义（`<名字>.yaml`）：具名资产集合 + 运行约定，由 `python -m findeck.workbench` 读取（`list`/`show`/`validate`）；用户从资产页创建的定义放 `<家目录>/workbenches/`，同名时优先 |
-| `python/findeck/` | 内置工具箱模块：`assets`（全局资产库）、`background`（后台 run 记录，供 `verb_bridge` 与 `pipeline` 的 CLI 共用）、`charts`（图表工厂）、`desk`（值班任务 yaml 校验器）、`pipeline`（pipeline.yaml 校验器/执行器）、`quickmodels`（统一建模）、`snapshot`（数据快照）、`verb_bridge`（face verb 执行桥）、`workbench`（workbench.yaml 校验器与 brief 生成器） |
+| `python/findeck/` | 内置工具箱模块：`assets`（全局资产库）、`background`（后台 run 记录，供 `verb_bridge` 与 `pipeline` 的 CLI 共用）、`charts`（图表工厂）、`desk`（任务校验、确定性信号、报告归档）、`pipeline`（pipeline.yaml 校验器/执行器）、`quickmodels`（统一建模）、`snapshot`（数据快照）、`verb_bridge`（face verb 执行桥）、`workbench`（workbench.yaml 校验器与 brief 生成器） |
 | `python/.venv/` | 数据环境（由 setup 脚本创建；通过 `.pth` 注册 findeck 包） |
 | `python/requirements-data.txt` | 预装清单，带上界（数据 + sklearn/lightgbm/statsmodels） |
 | `python/setup-env.ps1` / `.sh` | 幂等引导脚本（清华镜像优先，`FD_PIP_INDEX` 可覆盖） |
@@ -27,7 +27,17 @@
    PyTorch 系（数 GB）按任务按需装，skill 地图指路。
 2. **Skill 只指路，不装箱。** 每个 skill 是纯 Markdown：接口名、参数、代码模板、
    常见坑。AI 读了就能动手，人类也能直接阅读维护。
-3. **上游最小侵入。** 金融层通过组合配置里具名的行接入会话，而不是改动 harness 包：`packages/bundle/base/cordis.patch.yml` 把 skill-filesystem 的 `customSkillDirs` 指向 `finance/skills/`，并挂载 FinDeck 的各插件（`tool-asset-library`、`tool-thesis`、`tool-memory`、`redblue`、`roundtable`、`tool-roundtable`）；`packages/preset/agent-presets/presets/` 下每个 agent preset 也各自在自己的 skill-filesystem 行挂同一个 skills 目录。其余全部是新增文件，方便跟随上游更新；组合方式与插件加载规则见 [docs/architecture.zh.md](../docs/architecture.zh.md)。
+3. **通过插件组合金融能力。** Bundle 挂载金融技能，以及资产、命题、记忆和评审服务；共享的宿主调度器运行流水线和值班任务，专用 `desk` profile 组合无人值守执行。组合方式与扩展点见[架构说明](../docs/architecture.zh.md)。
+
+## 研究与自动化入口
+
+| 入口 | 定义位置 | 用途 |
+|---|---|---|
+| 资产流水线 | `finance/pipelines/*.yaml` 与引用的步骤脚本 | 重复执行已声明的处理步骤，并归档产物 |
+| Work 研究台 | 随仓库的 `finance/workbenches/*.yaml` 或 `<home>/workbenches/` 下的用户定义 | 在交互式研究会话中复用所选资产 |
+| 值班任务 | `<home>/desk/tasks/` 下的用户定义 | 计算信号并产出无人值守研究报告 |
+
+共享调度器和值班服务运行在 Web 宿主内。通过[自动化设置](../CONFIGURATION.md#自动化与会话提醒)配置独立开关。任务管理、报告记录、反馈与限制见[值班参考](../docs/subsystems/desk.zh.md)。
 
 ## Skills 一览
 

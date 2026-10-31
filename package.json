@@ -1,15 +1,16 @@
 {
   "name": "@deepseek-ai/dsh-root",
+  "description": "FinDeck: a local AI workspace for financial research, reusable assets, scheduled pipelines, and unattended reports",
   "version": "1.0.0-alpha.1",
   "license": "MIT",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dennisdan1104/FinDeck.git"
+    "url": "git+https://github.com/Dennisyu-m/FinDeck.git"
   },
-  "homepage": "https://github.com/Dennisdan1104/FinDeck",
+  "homepage": "https://github.com/Dennisyu-m/FinDeck",
   "bugs": {
-    "url": "https://github.com/Dennisdan1104/FinDeck/issues"
+    "url": "https://github.com/Dennisyu-m/FinDeck/issues"
   },
   "type": "module",
   "packageManager": "pnpm@11.7.0",

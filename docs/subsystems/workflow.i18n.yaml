@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and update both hashes by hand
 # (`git hash-object <path>`); nothing verifies this record.
-workflow.md: ece2bb392c90dc759912d9cd77347a2294f7f5eb
-workflow.zh.md: 5315bc946e3810fb3c0f6862f0b598c60fdf15ed
+workflow.md: 1b4c48359dc01e32a1b8179dea80fcad49918819
+workflow.zh.md: 8331ebb77710759569a3ac46c7e763e812c03f4d

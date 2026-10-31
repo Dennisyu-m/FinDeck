@@ -4,11 +4,14 @@
  * the manifest is checked against every on-disk `tool-*` package. `--check`
  * verifies the committed artifact. Rationale and ownership live in
  * `.agents/notes/implemented/process/2026-07-02-tool-schema-catalog.md`.
+ * HTML in model-facing prose is displayed literally in the Markdown catalog.
  */
 
 import { globSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join, resolve } from 'node:path'
 import { tmpdir } from 'node:os'
+import { fromMarkdown } from 'mdast-util-from-markdown'
+import type { Nodes } from 'mdast'
 import { Context } from '@deepseek-ai/cordis'
 import LlmRuntime from '@deepseek-ai/dsh-llm'
 import type { ToolSchema } from '@deepseek-ai/dsh-llm'
@@ -876,10 +879,34 @@ function toolSource(entry: ToolPackage, toolName: string): string {
   return source
 }
 
+/**
+ * Display HTML-like tool text literally without changing Markdown code spans.
+ * @param markdown - model-facing description or catalog note.
+ * @returns prose with HTML nodes escaped for Markdown and Vue rendering.
+ */
+function literalHtml(markdown: string): string {
+  const replacements: { start: number; end: number }[] = []
+  const visit = (node: Nodes): void => {
+    const start = node.position?.start.offset
+    const end = node.position?.end.offset
+    if (node.type === 'html' && start !== undefined && end !== undefined) {
+      replacements.push({ start, end })
+    }
+    if ('children' in node) for (const child of node.children) visit(child)
+  }
+  visit(fromMarkdown(markdown))
+  let result = markdown
+  for (const { start, end } of replacements.sort((left, right) => right.start - left.start)) {
+    const escaped = markdown.slice(start, end).replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    result = result.slice(0, start) + escaped + result.slice(end)
+  }
+  return result
+}
+
 /** Render one tool's entry: name, description, JSON-Schema parameters, source. */
 function renderTool(schema: ToolSchema, source: string): string[] {
   const out = [`### \`${schema.name}\``, '']
-  if (schema.description) out.push(schema.description, '')
+  if (schema.description) out.push(literalHtml(schema.description), '')
   out.push('```json', JSON.stringify(schema.parameters, null, 2), '```', '')
   out.push(`Source: [\`${source}\`](../${source})`, '')
   return out
@@ -890,7 +917,7 @@ function codeList(values: string[] | undefined): string {
 }
 
 function tableCell(value: string | undefined): string {
-  return value ? value.replace(/\|/g, '\\|').replace(/\n/g, '<br>') : '-'
+  return value ? literalHtml(value).replace(/\|/g, '\\|').replace(/\n/g, '<br>') : '-'
 }
 
 /** Render the full catalog (pure, deterministic given the manifest-ordered input). */
@@ -923,7 +950,7 @@ export function render(catalog: ToolCatalog): string {
       const source = entry.sources[schema.name] as string
       lines.push(...renderTool(schema, source))
     }
-    if (entry.note) lines.push(entry.note, '')
+    if (entry.note) lines.push(literalHtml(entry.note), '')
   }
   return lines.join('\n')
 }

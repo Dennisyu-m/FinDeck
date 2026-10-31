@@ -2,28 +2,25 @@
 
 English | [中文](README.zh.md)
 
-**FinDeck** is an AI-first finance research harness — the AI is the analyst, FinDeck is its flight deck, and you are the copilot who can take over at any moment.
+**FinDeck** is an open-source AI workspace for financial research. Run it locally, connect your own model, and use it to analyze data, maintain reusable research assets, and produce reports through conversations or scheduled tasks.
 
 It is built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (MIT), an everything-is-a-plugin agent runtime, extended with a finance layer:
 
-- **Data, one command away** — a Python environment with `akshare` (China equities / macro / news), `yfinance` (global equities, FX, commodities), `ccxt` (crypto exchanges) and `baostock`, created by [`finance/python/setup-env.sh`](finance/python/setup-env.sh) (the 680 MB venv itself is not committed, so a fresh clone starts without it).
-- **Models, on demand** — nothing heavy is preinstalled. A built-in skill acts as a model map: when a task needs linear regression, gradient-boosted trees, LSTM/Transformer time-series models, or zero-shot forecasters (Chronos / TimesFM), the AI reads the map, installs the right package, and runs it.
-- **Skills as manuals** — fourteen finance skills teach the AI *where* to get each kind of data, *which* model fits which task, how to backtest without fooling itself, and how to structure a research report.
-- **AI-led, human-supervised** — the AI decides which sources to query, which tools to run, and when to search the web. Every step is visible and interruptible in the Web UI.
+- **Research with data and models** — a separately installed Python environment provides `akshare`, `yfinance`, `ccxt`, `baostock`, and classic modeling tools; heavier model libraries are installed when a task needs them.
+- **Reuse research assets** — keep datasets, models, tools, and reports as versioned assets, and group existing assets into a Work research setup.
+- **Schedule repeatable work** — run declared asset pipelines on a schedule, or enable the unattended value desk to calculate signals and request AI interpretation.
+- **Review the evidence** — inspect run records and recorded source versions, ask follow-up questions about reports, track theses, and use roundtable or red/blue review.
 
-> Developer preview — expect breaking changes inherited from upstream. Review the [safety notice](SAFETY.md) before running.
+> Developer preview. APIs and stored formats may change. FinDeck's output is not investment advice; read the [safety notice](SAFETY.md) before running.
 
-> FinDeck's output is not investment advice. Read [SAFETY.md](SAFETY.md) before you run it.
+## Source and Windows download
 
-## Download
+| Distribution | Version | Contents |
+|---|---|---|
+| Current `master` source | `1.0.0-alpha.1` | Includes the 2026-10-31 automation and value-desk source update; follow Quickstart below to build it |
+| [Windows installer](https://github.com/Dennisyu-m/FinDeck/releases/tag/v0.1.3-alpha.1) | `0.1.3-alpha.1` | The existing desktop build; it does not include the later source updates |
 
-Grab the Windows installer from [Releases](https://github.com/Dennisdan1104/FinDeck/releases) — the setup file is named `FinDeck.Setup.*.exe`.
-
-It is unsigned, so SmartScreen warns about an "unknown publisher". That is expected for this build: click **More info → Run anyway**.
-
-Once installed, the desktop app works as is. Nothing heavy is bundled — the Python data environment and the other large components download on demand from **Settings → Environment & components**, so you do not need to prepare them first.
-
-To build from source or work on FinDeck itself, see the Quickstart below.
+The installer has not been rebuilt for this source update. It bundles a Node.js runtime; the Python environment and other large components are downloaded through **Settings → Environment & components**. The installer is unsigned, so Windows may display a publisher warning. Every distribution requires your own model configuration.
 
 ## Quickstart
 
@@ -34,7 +31,7 @@ To build from source or work on FinDeck itself, see the Quickstart below.
 Requirements: Node.js ≥ 22.19 (or ≥ 24), Python ≥ 3.10, pnpm ≥ 11.
 
 ```sh
-git clone https://github.com/Dennisdan1104/FinDeck.git findeck && cd findeck
+git clone https://github.com/Dennisyu-m/FinDeck.git findeck && cd findeck
 pnpm install
 pnpm run build
 
@@ -78,6 +75,7 @@ The preference accepts the earlier three-value form as well: `compact` keeps its
 | `findeck-pipeline` | Asset pipelines: `pipeline.yaml` format, the step-script protocol (markers, params, output paths), manual runs and harness scheduling, and failure/version rules |
 | `findeck-asset-face` | Generating an asset face: the eight block types, the per-kind good-face rules, storage and manifest declaration, and the `validate_face.py` gate |
 | `findeck-workbench` | Work mode: the Work/Free test, the `workbench.yaml` format, the opening asset brief, and the run-and-report discipline |
+| `findeck-desk` | Unattended value-desk runs: deterministic signals, four-section reports, recorded sources, and execution permissions |
 
 Skills live in [`finance/skills/`](finance/skills/) as plain Markdown and are mounted through the harness skill system — add your own by dropping a new `SKILL.md` directory there.
 
@@ -98,7 +96,7 @@ The five shipped presets are the roster below; the `mode_list` and `mode_write` 
 ## Assets, workbenches, and review
 
 - **Asset hub** — the `research-assets` page reads the global asset library: assets as a grid or a compact table, each version's `face.json` rendered block by block through the `runVerb` bridge, the lineage graph over the snapshot's dependency edges, the reports tab with its thesis strip, and the mode-flows tab; **Hand to AI** opens a new session seeded with an asset brief.
-- **Workbenches (Work mode)** — a desk binds a set of archived assets to the conventions for running them. [`finance/workbenches/hs300-research.yaml`](finance/workbenches/hs300-research.yaml) is the shipped one: the session enters by name, runs the assets' declared verbs instead of rebuilding from scratch, and archives every change as a new version.
+- **Workbenches (Work mode)** — select assets in the asset hub to create a reusable research setup. A Work definition binds archived assets to their run conventions; the conversation runs their declared actions and archives changes as new versions. [`finance/workbenches/hs300-research.yaml`](finance/workbenches/hs300-research.yaml) is the shipped example and requires its referenced assets in the library.
 - **Roundtable** — several speaker identities over one shared transcript, with shipped or user-authored seatings, `shallow` and `deep` research depth, @-calls, interrupts, a table seeded from an existing session, and closed tables archived for `roundtable_list` and `roundtable_read`.
 - **Red/blue adversarial review** — `/rb-check <report path|thesis id>` and the agent-callable `rb_check` inject a red-team attack followed by a blue-team defense into the running session; both prompts are editable settings.
 - **Thesis tracking** — `thesis_list`, `thesis_show`, `thesis_write`, and `thesis_mark` turn a report's conclusion into a manifest with a metric, a due date, and a running hit/miss score.
@@ -107,6 +105,18 @@ The five shipped presets are the roster below; the `mode_list` and `mode_write` 
 - **Desktop shell** — [`apps/desktop/`](apps/desktop/) is an Electron window over the local Web UI, with a tray icon, a global `Alt+Shift+D` hotkey, and opt-in autostart; it starts the same server as `start-findeck.ps1`, so closing the window leaves running sessions alone.
 
 The finance layer's own inventory is [`finance/README.md`](finance/README.md); generated tool schemas are in [`docs/tool-catalog.md`](docs/tool-catalog.md).
+
+## Scheduled tasks and value desk
+
+| Entry | Who runs the work | Result |
+|---|---|---|
+| Scheduled tasks | The program executes declared pipeline steps, without model interpretation | Updated assets and pipeline run records |
+| Work mode | You work with the AI in a conversation over selected assets | Interactive analysis and new asset versions |
+| Value desk | The program computes signals; the AI interprets a task when required | Run details, reports, follow-up sessions, and feedback |
+
+Open **Settings → Automation** to control scheduled tasks and the value desk independently. Scheduled tasks are enabled by default; the value desk is disabled by default and requires a configured model and the finance Python environment. A new task must use assets available in your library. The host process must stay running for unattended work.
+
+The value-desk page provides task editing, enable/disable, run now, cancel, and run/report history. Reports have four sections: key points, signal interpretation, thesis rechecks, and decisions for you. Failed AI interpretation can produce a no-interpretation report from the signal results. Feedback and scorecards describe research activity; they do not measure investment returns. Configuration is documented in [CONFIGURATION.md](CONFIGURATION.md#自动化与会话提醒), and the service reference is [Value desk](docs/subsystems/desk.md).
 
 ## Project layout
 
