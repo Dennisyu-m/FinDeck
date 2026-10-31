@@ -4,6 +4,8 @@
  */
 import type { Context as ClientContext } from '@deepseek-ai/cordis'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
+import type { ChromeLists } from '../chrome.ts'
 import type { RestartController, RestartState } from '../restart.ts'
 import type { UserProfileController, UserProfileState } from '../user-profile.ts'
 
@@ -42,6 +44,7 @@ export function shellFrameInjected(
   ctx: ClientContext,
   userProfile: UserProfileController,
   restart: RestartController,
+  sections: HostObservable<ChromeLists>,
 ): ShellFrameInjected {
   const workspaceNavigation = ctx.get('uiWorkspace') as unknown as WorkspaceNavigation
   return {
@@ -67,6 +70,7 @@ export function shellFrameInjected(
       hooks: { restart: restart.store },
       restart: () => { restart.restart() },
     },
+    sections,
   }
 }
 
@@ -86,4 +90,6 @@ export interface ShellFrameInjected {
   userProfile: ShellUserProfileInjected
   /** The sidebar's service-restart facts and verb. */
   serviceRestart: ShellServiceRestartInjected
+  /** Live section lists for the top nav and the settings rail. */
+  sections: HostObservable<ChromeLists>
 }

@@ -223,6 +223,49 @@
   overflow: hidden;
 }
 
+.workActions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.workCreate,
+.workForm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--ad-border, #e6e6e2);
+  border-radius: 10px;
+}
+
+.workCount {
+  margin: 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.workGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.workCard {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid var(--ad-border, #e6e6e2);
+  border-radius: 10px;
+}
+
 .flowHead {
   display: flex;
   align-items: center;

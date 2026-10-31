@@ -113,15 +113,17 @@ powershell -NoProfile -ExecutionPolicy Bypass -File start-findeck.ps1
 
 脚本把 `FINDECK_HOME` 和 `DSH_HOME` 都固定为 `~/.findeck`，并把启动的进程号记在 `~/.findeck/logs/web-server.pid`；3081 上若不是它自己启动的进程（或日志里的 token 已失效），会先停掉再重新拉起，所以从别处启动的“串味”服务只要重跑一次脚本就会被纠正。原版 DSH 的 3080 与 `~/.dsh` 不受影响。
 
-## 可选能力：用 overlay 打开
+## 自动化与会话提醒
 
-定时任务（Schedule）在出货的 Web 组合里已经可用：`ui-pages` 注册的「定时任务」页（`settings.section` id `schedule`）列出已排定任务与过期状态，并给出可复制的常用模板；模型侧的 `schedule_create` / `schedule_list` / `schedule_delete` / `schedule_pause` / `schedule_resume` 五个工具随 base 的 `schedule` 行挂载。提醒的持久状态是会话自己的 `schedule/change` 事件流，投递只到打开着的会话——没有外部通道，会话关着时不触发，会话再次打开时按日志补投已到期的提醒；会话头部的活动提醒目录 `ui-schedule` 在出货组合里是 `disabled: true`。
+「设置 → 自动化」提供两个独立开关：定时任务默认开启，由宿主执行 `finance/pipelines/*.yaml` 中声明的任务；值班默认关闭，开启后提供任务管理、运行记录与报告页面。关闭一层不会停止另一层；Work 模式始终可用。值班需要可用的模型配置和金融 Python 环境，配置方法见上文及 [金融层说明](finance/README.zh.md)。
+
+会话提醒（Schedule）在出货的 Web 组合里已经可用：`ui-pages` 注册的「会话提醒」页（`settings.section` id `schedule`）列出已排定提醒与过期状态，并给出可复制的常用模板；模型侧的 `schedule_create` / `schedule_list` / `schedule_delete` / `schedule_pause` / `schedule_resume` 五个工具随 base 的 `schedule` 行挂载。提醒的持久状态是会话自己的 `schedule/change` 事件流，投递只到打开着的会话——没有外部通道，会话关着时不触发，会话再次打开时按日志补投已到期的提醒；会话头部的活动提醒目录 `ui-schedule` 在出货组合里是 `disabled: true`。
 
 base 把 `path: ':memory:'` / `openAt: never` 写在 `schedule` 行下，但 `dsh-schedule` 不导出 `Config`，Loader 对没有配置 schema 的插件原样透传配置，它的 `apply(ctx)` 也不读配置，因此这两个键不配置它；同一组键在出货组合里由 web-app 层挂在 `session-query-sqlite` 行上，其 `openAt: never` 关闭会话内容检索、完全不打开 SQLite 索引，`ctx.sessionQuery` 的精确读取、标题与血缘查询照旧可用。
 
-叠加层由 `--patch` 引入，可重复，按 argv 顺序在每个 profile 层之后生效；`$DSH_HOME/cordis.patch.yml` 是同一套机制的常驻层，用于长期调整。`apps/cli/config/examples/schedule/cordis.yml` 就是一个叠加层：它 `insert` 一行 `time-context`（浏览器时区解析），并把 `ui-schedule` 置为 `disabled: false`；host 侧的 `schedule` 行已由 base 层挂载，叠加层不重复 `insert`（无 patch 级 id 的 `insert` 是无条件追加，重复的 loader entry id 会让加载失败）。
+叠加层由 `--patch` 引入，可重复，按 argv 顺序在每个 profile 层之后生效；`$DSH_HOME/cordis.patch.yml` 是同一套机制的常驻层，用于长期调整。`apps/cli/config/examples/schedule/cordis.yml` 就是一个叠加层：base 已经有 `id: schedule`，所以示例只 `insert` 一行 `time-context`（浏览器时区解析），并把 `ui-schedule` 置为 `disabled: false`。无 patch 级 id 的 `insert` 是无条件追加，既不去重也不替换既有行；再插入一行 `schedule` 会在加载插件树时以 `duplicate loader entry id: schedule` 失败。
 
-直接叠加该示例即可启用定时任务页：
+启用会话头部的提醒目录：
 
 ```powershell
 pnpm dsh web --patch apps/cli/config/examples/schedule/cordis.yml

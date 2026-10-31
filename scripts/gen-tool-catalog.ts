@@ -43,7 +43,9 @@ import * as SkillFileSystem from '@deepseek-ai/dsh-skill-filesystem'
 import LocalJobRegistry from '@deepseek-ai/dsh-jobs-local'
 import * as ToolAskUser from '@deepseek-ai/dsh-tool-ask-user'
 import * as ToolAssetLibrary from '@deepseek-ai/dsh-tool-asset-library'
+import ThesisRegistry from '@deepseek-ai/dsh-thesis'
 import * as ToolThesis from '@deepseek-ai/dsh-tool-thesis'
+import * as ToolDesk from '@deepseek-ai/dsh-tool-desk'
 import * as ToolMemory from '@deepseek-ai/dsh-tool-memory'
 import * as ToolPresent from '@deepseek-ai/dsh-tool-present'
 import * as Redblue from '@deepseek-ai/dsh-redblue'
@@ -238,13 +240,27 @@ const TOOL_PACKAGES: ToolPackage[] = [
     pkg: '@deepseek-ai/dsh-tool-thesis',
     dir: 'tool-thesis',
     source: 'packages/skill/tool-thesis/src/index.ts',
-    requires: ['ctx.tools'],
+    requires: ['ctx.tools', 'ctx.thesis'],
     writes: ['tool/call', 'tool/result'],
     async mount(ctx) {
+      await ctx.plugin(ThesisRegistry)
       await ctx.plugin(ToolThesis)
     },
     note:
-      'FinDeck thesis registry: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest, and thesis_mark appends one recheck outcome with evidence; the same files feed the research-asset page and the scheduled recheck flow.',
+      'FinDeck thesis registry over ctx.thesis: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest (omitted by allowWrite: false), and thesis_mark appends one recheck outcome with evidence; the same registry feeds the research-asset page, the desk scorecard, and the value desk due-date trigger.',
+  },
+  {
+    pkg: '@deepseek-ai/dsh-tool-desk',
+    dir: 'tool-desk',
+    source: 'packages/skill/tool-desk/src/index.ts',
+    requires: ['ctx.tools', 'ctx.subprocess'],
+    writes: ['tool/call', 'tool/result', 'desk_report archive through python -m findeck.desk', 'per-run audit.jsonl rows for failed tool calls'],
+    async mount(ctx) {
+      await ctx.plugin(LocalSubprocessRuntime)
+      await ctx.plugin(ToolDesk)
+    },
+    note:
+      'Value-desk run tools: desk_preferences reads the deterministic feedback summary prepared for this run, and desk_report archives the four-section report through the repository validator with the run id, session id, and input versions supplied by the host; failed and refused tool calls recorded in the run audit become report decisions.',
   },
   {
     pkg: '@deepseek-ai/dsh-redblue',

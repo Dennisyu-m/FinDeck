@@ -28,6 +28,9 @@
     },
     {
       "path": "../ui-slots"
+    },
+    {
+      "path": "../../api/remotes/tsconfig.client.json"
     }
   ]
 }

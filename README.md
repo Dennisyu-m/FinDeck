@@ -8,7 +8,7 @@ It is built on [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harnes
 
 - **Data, one command away** — a Python environment with `akshare` (China equities / macro / news), `yfinance` (global equities, FX, commodities), `ccxt` (crypto exchanges) and `baostock`, created by [`finance/python/setup-env.sh`](finance/python/setup-env.sh) (the 680 MB venv itself is not committed, so a fresh clone starts without it).
 - **Models, on demand** — nothing heavy is preinstalled. A built-in skill acts as a model map: when a task needs linear regression, gradient-boosted trees, LSTM/Transformer time-series models, or zero-shot forecasters (Chronos / TimesFM), the AI reads the map, installs the right package, and runs it.
-- **Skills as manuals** — thirteen finance skills teach the AI *where* to get each kind of data, *which* model fits which task, how to backtest without fooling itself, and how to structure a research report.
+- **Skills as manuals** — fourteen finance skills teach the AI *where* to get each kind of data, *which* model fits which task, how to backtest without fooling itself, and how to structure a research report.
 - **AI-led, human-supervised** — the AI decides which sources to query, which tools to run, and when to search the web. Every step is visible and interruptible in the Web UI.
 
 > Developer preview — expect breaking changes inherited from upstream. Review the [safety notice](SAFETY.md) before running.

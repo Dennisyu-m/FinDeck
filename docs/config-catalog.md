@@ -337,6 +337,57 @@ export interface Config {
 
 Source: [`packages/attachment/attachment-local/src/index.ts:61`](../packages/attachment/attachment-local/src/index.ts)
 
+<a id="deepseek-aidsh-automation-runner"></a>
+
+## `@deepseek-ai/dsh-automation-runner`
+
+Requires: `subprocess`
+
+```ts config-catalog
+/** Plugin configuration. Schemastery fills every field before the constructor runs. */
+export interface Config {
+  /** Directory holding desk run records; defaults to `<harness home>/desk/runs`. */
+  readonly deskRunsDir?: string
+  /** Working directory for the finance Python child and the desk profile. Relative paths resolve against the package default. */
+  readonly repoRoot?: string
+  /** Finance venv interpreter. Relative paths resolve against `repoRoot`. */
+  readonly pythonPath?: string
+  /** Path of the built dsh CLI entry used for the desk profile. Relative paths resolve against `repoRoot`. */
+  readonly cliBin?: string
+  /** Profile name of the desk execution composition. */
+  readonly deskProfile?: string
+  /**
+   * Asset library root passed to the child as `FINDECK_ASSET_DIR`.
+   * Relative paths resolve against the harness home default.
+   */
+  readonly assetDir?: string
+  /** Wall-clock budget for one pipeline process, in milliseconds. */
+  readonly timeoutMs?: number
+  /** `latest` runs the single most recent missed pipeline fire on startup. `none` waits for the next future fire. */
+  readonly catchUp?: 'latest' | 'none'
+  /** Maximum stderr bytes copied onto a run record. */
+  readonly stderrTailBytes?: number
+  /** Grace given to `ctx.subprocess` after abort, in milliseconds. */
+  readonly graceMs?: number
+  /** Deployment default for one desk model request's output cap. */
+  readonly deskMaxOutputTokens?: number
+  /** Upper bound on one fallback report archive invocation, in milliseconds. */
+  readonly archiveTimeoutMs?: number
+  /** Captured stdout/stderr cap for the signal step and one fallback archive. */
+  readonly deskSignalMaxBytes?: number
+  /** Tail window used to find this run's report line, in bytes. */
+  readonly deskLogReadMaxBytes?: number
+  /** Deterministic threshold: absolute close-to-close move counted as a signal. */
+  readonly deskMovePct?: number
+  /** Deterministic threshold: volume multiple over the previous bar counted as a signal. */
+  readonly deskVolumeRatio?: number
+  /** Deterministic threshold: maximum age of an asset's declared `as_of`. */
+  readonly deskFreshnessMaxAgeDays?: number
+}
+```
+
+Source: [`packages/skill/automation-runner/src/types.ts:206`](../packages/skill/automation-runner/src/types.ts)
+
 <a id="deepseek-aidsh-bash-local"></a>
 
 ## `@deepseek-ai/dsh-bash-local`
@@ -441,6 +492,32 @@ export interface Config {
 
 Source: [`packages/client/shortcuts/src/config.ts:5`](../packages/client/shortcuts/src/config.ts)
 
+<a id="deepseek-aidsh-client-ui-settings-automation"></a>
+
+## `@deepseek-ai/dsh-client-ui-settings-automation`
+
+Requires: `loader`
+
+```ts config-catalog
+/** Plugin config: the switch groups. Membership is configuration, not code. */
+export interface Config {
+  /** One switch and the Loader entry ids it turns together. */
+  groups: SwitchGroup[]
+}
+
+/** One switch and the Loader entry ids it turns together. */
+export interface SwitchGroup {
+  /** Stable group id. The page maps known ids onto locale copy. */
+  id: string
+  /** Loader entry ids. Every id must exist in the current composition. */
+  entries: string[]
+  /** Bundle-layer default; absent means on. A default-off group reads off until a user row enables it. */
+  defaultOn?: boolean
+}
+```
+
+Source: [`packages/client/ui-settings-automation/src/index.ts:20`](../packages/client/ui-settings-automation/src/index.ts)
+
 <a id="deepseek-aidsh-compaction-basic"></a>
 
 ## `@deepseek-ai/dsh-compaction-basic`
@@ -518,6 +595,8 @@ Requires: `tools`
 export interface Config {
   /** Maximum synchronous VM evaluation time in milliseconds. */
   vmTimeoutMs?: number
+  /** Maximum wait for a valid Client inspect response in milliseconds. */
+  clientInspectTimeoutMs?: number
 }
 ```
 
@@ -542,6 +621,46 @@ export interface Config {
 ```
 
 Source: [`packages/credentials/credentials-local/src/index.ts:64`](../packages/credentials/credentials-local/src/index.ts)
+
+<a id="deepseek-aidsh-desk"></a>
+
+## `@deepseek-ai/dsh-desk`
+
+Requires: `automationRunner` · `thesis` · `subprocess` · `tools` · `timer`
+
+```ts config-catalog
+/** Plugin configuration. */
+export interface Config {
+  /** Task directory; defaults to `<harness home>/desk/tasks`. */
+  readonly tasksDir?: string
+  /** Desk data root (runs, feedback, ledgers); defaults to `<harness home>/desk`. */
+  readonly deskDir?: string
+  /** Asset library root; defaults to `<harness home>/asset-library`. */
+  readonly assetDir?: string
+  /** Finance venv interpreter. */
+  readonly pythonPath?: string
+  /** Repository root used as the Python working directory. */
+  readonly repoRoot?: string
+  /** Byte window for one run-log read. */
+  readonly maxRunsReadBytes?: number
+  /** Maximum merged runs one query returns. */
+  readonly maxRunRecords?: number
+  /** Days of feedback that shape the preference summary. */
+  readonly preferenceWindowDays?: number
+  /** Minimum useless marks before a source is listed as de-prioritised. */
+  readonly preferenceSuppressionMin?: number
+  /** Recheck interval for thesis-due triggers, in seconds. */
+  readonly thesisCheckSeconds?: number
+  /** Attempts per due thesis before an errored run stops retrying; defaults to 3. */
+  readonly thesisMaxAttempts?: number
+  /** Default cumulative token budget a template proposes. */
+  readonly templateTokens?: number
+  /** Default wall-clock seconds a template proposes. */
+  readonly templateWallSeconds?: number
+}
+```
+
+Source: [`packages/skill/desk/src/types.ts:240`](../packages/skill/desk/src/types.ts)
 
 <a id="deepseek-aidsh-experimental-agent-team"></a>
 
@@ -901,10 +1020,18 @@ export interface Config {
   sessionId?: string
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json?: boolean
+  /**
+   * Cumulative model-usage cap for the whole run: provider-reported input plus
+   * output tokens across every completed step. Absent means no cumulative cap.
+   * Cache tokens are reported separately and never added twice.
+   */
+  budgetTokens?: number
+  /** Per-request output cap. This is not the run budget; it bounds one response. */
+  maxOutputTokens?: number
 }
 ```
 
-Source: [`packages/bundle/headless/src/index.ts:42`](../packages/bundle/headless/src/index.ts)
+Source: [`packages/bundle/headless/src/index.ts:43`](../packages/bundle/headless/src/index.ts)
 
 <a id="deepseek-aidsh-hooks-claude-code"></a>
 
@@ -2877,6 +3004,14 @@ export interface Config {
    * regain the foreground before `inferred_idle` settles; at least one `pollIntervalMs`.
    */
   handoffGraceMs?: number
+  /**
+   * Extra wait beyond `idleSilenceMs` and `handoffGraceMs`, once a prompt marker was seen but
+   * its printable tail has not arrived, before `inferred_idle` settles. The marker is written
+   * by the shell's own prompt function and the tail by the same render, so a missing tail is a
+   * delivery delay on a contended host rather than an absent prompt. Zero keeps the bound at
+   * `idleSilenceMs + handoffGraceMs`; any other value covers at least one `pollIntervalMs`.
+   */
+  promptTailGraceMs?: number
   /** Absolute bound for one send and the complete pwsh startup sequence. */
   timeoutMs?: number
   /** Grace before teardown escalates to `SIGKILL`. */
@@ -2888,6 +3023,20 @@ export type ShellDialect = 'bash' | 'pwsh'
 ```
 
 Source: [`packages/terminal/terminal-bash/src/config.ts:10`](../packages/terminal/terminal-bash/src/config.ts)
+
+<a id="deepseek-aidsh-thesis"></a>
+
+## `@deepseek-ai/dsh-thesis`
+
+```ts config-catalog
+/** Plugin configuration for the registry. */
+export interface Config {
+  /** Registry root; defaults to `<harness home>/asset-library/theses`. */
+  readonly thesesDir?: string
+}
+```
+
+Source: [`packages/skill/thesis-registry/src/types.ts:72`](../packages/skill/thesis-registry/src/types.ts)
 
 <a id="deepseek-aidsh-time-context"></a>
 
@@ -2936,6 +3085,24 @@ export type TokenMeterConfig = Record<string, never>
 
 Source: [`packages/llm/token-meter/src/types.ts:13`](../packages/llm/token-meter/src/types.ts)
 
+<a id="deepseek-aidsh-tool-ask-user"></a>
+
+## `@deepseek-ai/dsh-tool-ask-user`
+
+Requires: `tools` · `userQuestions`
+
+```ts config-catalog
+/** Cordis row selecting the tool schema and its default foreground wait. */
+export interface Config {
+  /** Tool definition selected by this Cordis row. Defaults to the blocking legacy tool. */
+  mode?: 'legacy' | 'timed'
+  /** Foreground wait before automatic continuation. Defaults to 120 seconds. */
+  timeout?: number
+}
+```
+
+Source: [`packages/interaction/tool-ask-user/src/index.ts:16`](../packages/interaction/tool-ask-user/src/index.ts)
+
 <a id="deepseek-aidsh-tool-asset-library"></a>
 
 ## `@deepseek-ai/dsh-tool-asset-library`
@@ -2951,6 +3118,20 @@ export interface Config {
   readonly pythonPath?: string
   /** Whether `asset_run` must pass the approval seam (user-visible, rejectable); default `true`. */
   readonly requireApproval?: boolean
+  /**
+   * Whether this composition registers `asset_run_bg`. Default `true`; the
+   * unattended desk composition sets `false` because its permission preset
+   * allows a foreground library run and not a detached submission.
+   */
+  readonly background?: boolean
+  /**
+   * Whether `asset_run` and `asset_run_bg` must execute inside the composed
+   * sandbox with the asset library as their only writable root. Default
+   * `false`, which leaves the ordinary interactive research semantics alone;
+   * the unattended desk composition sets `true` so an asset function cannot
+   * write outside the library.
+   */
+  readonly sandbox?: boolean
   /** Per-stream collected output cap for one `asset_run` call, in bytes. */
   readonly maxOutputBytes?: number
   /** Termination grace for `asset_run` child processes, in milliseconds. */
@@ -2958,7 +3139,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/skill/tool-asset-library/src/index.ts:148`](../packages/skill/tool-asset-library/src/index.ts)
+Source: [`packages/skill/tool-asset-library/src/index.ts:149`](../packages/skill/tool-asset-library/src/index.ts)
 
 <a id="deepseek-aidsh-tool-bash"></a>
 
@@ -3032,6 +3213,39 @@ export type ClusterStrategy = 'synthesize' | 'vote'
 ```
 
 Source: [`packages/cluster/tool-cluster/src/index.ts:44`](../packages/cluster/tool-cluster/src/index.ts)
+
+<a id="deepseek-aidsh-tool-desk"></a>
+
+## `@deepseek-ai/dsh-tool-desk`
+
+Requires: `tools` · `subprocess`
+
+```ts config-catalog
+/** Plugin configuration. Paths are deployment choices and all validate. */
+export interface Config {
+  /** Repository root used as the Python working directory. */
+  readonly repoRoot?: string
+  /** Finance venv interpreter. */
+  readonly pythonPath?: string
+  /** Asset library root; defaults to `<harness home>/asset-library`. */
+  readonly assetDir?: string
+  /** Desk record root; defaults to `<harness home>/desk`. */
+  readonly deskDir?: string
+  /** Per-stream collected output cap in bytes. */
+  readonly maxOutputBytes?: number
+  /** Termination grace for the archive child process, in milliseconds. */
+  readonly graceMs?: number
+  /**
+   * Whether the report archive must run inside the composed sandbox with the
+   * asset library as its only writable root. The unattended desk composition
+   * sets `true`; an unavailable sandbox fails the tool instead of writing the
+   * report unconfined.
+   */
+  readonly sandbox?: boolean
+}
+```
+
+Source: [`packages/skill/tool-desk/src/index.ts:43`](../packages/skill/tool-desk/src/index.ts)
 
 <a id="deepseek-aidsh-tool-fs"></a>
 
@@ -3228,7 +3442,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/shell/tool-pwsh-persistent/src/index.ts:472`](../packages/shell/tool-pwsh-persistent/src/index.ts)
+Source: [`packages/shell/tool-pwsh-persistent/src/index.ts:473`](../packages/shell/tool-pwsh-persistent/src/index.ts)
 
 <a id="deepseek-aidsh-tool-ralph"></a>
 
@@ -3416,17 +3630,21 @@ Source: [`packages/terminal/tool-terminal/src/index.ts:35`](../packages/terminal
 
 ## `@deepseek-ai/dsh-tool-thesis`
 
-Requires: `tools`
+Requires: `tools` · `thesis`
 
 ```ts config-catalog
 /** Model-facing thesis-registry tool configuration. */
 export interface Config {
-  /** Thesis registry root; defaults to `<harness home>/asset-library/theses` (`$DSH_HOME`, else `~/.findeck`). */
-  readonly thesesDir?: string
+  /**
+   * Whether this composition registers `thesis_write`. Default `true`; the
+   * desk execution composition sets `false` because its permission preset
+   * allows recording a recheck, not creating research components.
+   */
+  readonly allowWrite?: boolean
 }
 ```
 
-Source: [`packages/skill/tool-thesis/src/index.ts:46`](../packages/skill/tool-thesis/src/index.ts)
+Source: [`packages/skill/tool-thesis/src/index.ts:32`](../packages/skill/tool-thesis/src/index.ts)
 
 <a id="deepseek-aidsh-tool-todo"></a>
 
@@ -3647,7 +3865,7 @@ export interface Config {
 }
 ```
 
-Source: [`packages/bundle/web-app/src/index.ts:124`](../packages/bundle/web-app/src/index.ts)
+Source: [`packages/bundle/web-app/src/index.ts:193`](../packages/bundle/web-app/src/index.ts)
 
 <a id="deepseek-aidsh-web-fetch-http"></a>
 
@@ -3869,11 +4087,13 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-client-ui-approval` ([`packages/client/ui-approval/src/index.ts`](../packages/client/ui-approval/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-assets` ([`packages/client/ui-assets/src/index.ts`](../packages/client/ui-assets/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-attachment` ([`packages/client/ui-attachment/src/index.ts`](../packages/client/ui-attachment/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-automation` ([`packages/client/ui-automation/src/index.ts`](../packages/client/ui-automation/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-chat` ([`packages/client/ui-chat/src/index.ts`](../packages/client/ui-chat/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-commands` ([`packages/client/ui-commands/src/index.ts`](../packages/client/ui-commands/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-conversation` ([`packages/client/ui-conversation/src/index.ts`](../packages/client/ui-conversation/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-cordis` ([`packages/extensions/ui-cordis/src/index.ts`](../packages/extensions/ui-cordis/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-deliverables` — requires `systemPrompt` · `connection` · `sessionQuery` · `sessionController` · `workspaceFiles` · `fs` · `sandboxPolicy` · `workspaceChanges` ([`packages/client/ui-deliverables/src/index.ts`](../packages/client/ui-deliverables/src/index.ts))
+- `@deepseek-ai/dsh-client-ui-desk` ([`packages/client/ui-desk/src/index.ts`](../packages/client/ui-desk/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-directory-picker-browse` ([`packages/client/ui-directory-picker-browse/src/index.ts`](../packages/client/ui-directory-picker-browse/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-directory-picker-native` ([`packages/client/ui-directory-picker-native/src/index.ts`](../packages/client/ui-directory-picker-native/src/index.ts))
 - `@deepseek-ai/dsh-client-ui-goal` ([`packages/client/ui-goal/src/index.ts`](../packages/client/ui-goal/src/index.ts))
@@ -3946,7 +4166,6 @@ These load from a `cordis.yml` entry with no `config:` block; they declare no co
 - `@deepseek-ai/dsh-storage` ([`packages/storage/storage/src/index.ts`](../packages/storage/storage/src/index.ts))
 - `@deepseek-ai/dsh-subprocess-local` ([`packages/subprocess/subprocess-local/src/index.ts`](../packages/subprocess/subprocess-local/src/index.ts))
 - `@deepseek-ai/dsh-terminal` ([`packages/terminal/terminal/src/index.ts`](../packages/terminal/terminal/src/index.ts))
-- `@deepseek-ai/dsh-tool-ask-user` — requires `tools` · `userQuestions` ([`packages/interaction/tool-ask-user/src/index.ts`](../packages/interaction/tool-ask-user/src/index.ts))
 - `@deepseek-ai/dsh-tool-call-timeout-policy` — requires `tools` ([`packages/guard/timeout-policy/src/index.ts`](../packages/guard/timeout-policy/src/index.ts))
 - `@deepseek-ai/dsh-tool-cordis` — requires `tools` · `systemPrompt` · `dynamicCordisRunner` · `cordisInspect` ([`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/tool-cordis/src/index.ts))
 - `@deepseek-ai/dsh-tool-preset-authoring` — requires `tools` · `agentPresets` ([`packages/preset/tool-preset-authoring/src/index.ts`](../packages/preset/tool-preset-authoring/src/index.ts))
@@ -3994,6 +4213,7 @@ Imported as libraries by other packages; a `cordis.yml` cannot load them.
 - `@deepseek-ai/dsh-client-web` ([`packages/client/web/src/index.ts`](../packages/client/web/src/index.ts))
 - `@deepseek-ai/dsh-cmdline` ([`packages/boot/cmdline/src/index.ts`](../packages/boot/cmdline/src/index.ts))
 - `@deepseek-ai/dsh-deque` ([`packages/util/deque/src/index.ts`](../packages/util/deque/src/index.ts))
+- `@deepseek-ai/dsh-desk-app` ([`packages/bundle/desk/src/index.ts`](../packages/bundle/desk/src/index.ts))
 - `@deepseek-ai/dsh-experimental-agent-team-profile` ([`packages/experimental/agent-team-profile/src/index.ts`](../packages/experimental/agent-team-profile/src/index.ts))
 - `@deepseek-ai/dsh-experimental-voice-input-bundle` ([`packages/experimental/voice-input-bundle/src/index.ts`](../packages/experimental/voice-input-bundle/src/index.ts))
 - `@deepseek-ai/dsh-experimental-webworker-packer` ([`packages/experimental/webworker-packer/src/index.ts`](../packages/experimental/webworker-packer/src/index.ts))

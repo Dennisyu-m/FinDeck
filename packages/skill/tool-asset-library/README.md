@@ -43,6 +43,8 @@ Use it in FinDeck compositions, where sessions train models or write reusable co
 | `assetDir` | `<harness home>/asset-library` | Asset library root, resolved from the configured home, `$DSH_HOME`, else `~/.findeck`; mirrors `FINDECK_ASSET_DIR` on the Python side |
 | `pythonPath` | the repository's `finance/python/.venv` interpreter | Finance venv used by `asset_run` and `asset_run_bg` |
 | `requireApproval` | `true` | Whether `asset_run` must pass the approval seam before executing; `asset_run_bg` never asks, because it only submits detached work and answers before any result exists |
+| `background` | `true` | Whether this composition registers `asset_run_bg`; the unattended desk composition sets `false` |
+| `sandbox` | `false` | Whether `asset_run`/`asset_run_bg` must execute through `ctx.sandbox` with the asset library as the only writable root. The desk composition sets `true`; a missing sandbox service fails closed instead of running unconfined |
 | `maxOutputBytes` | `262144` | Per-stream collected output cap for one `asset_run` / `asset_run_bg` call |
 | `graceMs` | `15000` | Termination grace for `asset_run` / `asset_run_bg` child processes |
 
@@ -78,6 +80,8 @@ The Python module owns the library format; this package owns the model boundary.
 ### Call log
 
 Every successful `asset_search`, `asset_show`, `asset_run`, and `asset_run_bg` appends one JSON line to `<assetDir>/usage.jsonl`: `{ts, tool, asset?, session?}`, where `asset` is absent for a library-wide search and `session` is absent when the call has no owning agent. The file is created (with its directory) on the first recorded call. Recording is a side channel — a library directory that cannot be created or written to leaves the statistics stale and never fails the tool call.
+
+When the desk runner sets `FINDECK_DESK_SOURCES_FILE`, a successful `asset_show` or `asset_run` also appends one line to that run's source ledger with the exact resolved version. The report archive merges that ledger with the signal inputs; a failed read or run records nothing. Ledger writes are **not** a silent side channel: a report that cannot record a version would omit a source it used, so the tool fails instead.
 
 ### Source map
 
@@ -175,7 +179,9 @@ These limits define when the tools are a poor fit. They are current package cons
 - **No streaming or partial results** — `asset_run` is batch: collected output is capped and spilled tails are not linked into the tool result.
 - **The catalog is whole-list replacement** — one archived or removed asset republishes every entry; the digest keeps unchanged libraries free.
 - **Model assets must ship a runnable `.py` exposing `predict`** — weights alone are not executable; the archive discipline in the research skill owns that contract.
-- **`asset_run_bg` reports no completion** — it answers with the accepted run's id and record path, never with a result; the caller that wants the result back must compose the roundtable engine (which follows the record to a turn boundary) or read `<assetDir>/runs/<run_id>.json` itself. The record path is computed from this package's `assetDir`, so a deployment that points the Python side's `FINDECK_ASSET_DIR` at a different root makes that path wrong. Its absent approval seam is deliberate: the tool only submits detached work and no result exists at call time, so what it may run is bounded by the asset verbs the library exposes.
+- **Sandbox `workspace-write` governs file effects only** — the desk composition roots it at the asset library, so a verb cannot write the repository, desk tasks, or the user's home, but the sandbox provider does not add an executable allowlist; an asset's Python code can still start a program that does not write outside the granted roots. Treat archived asset code as trusted input.
+- **Source recording covers tool reads, not internal asset code** — `asset_show` and `asset_run` report the version they resolved; a version another asset reads internally is not visible and is not guessed.
+- **`asset_run_bg` reports no completion** — it answers with the accepted run's id and record path, never with a result; the caller that wants the result back must compose the roundtable engine (which follows the record to a turn boundary) or read `<assetDir>/runs/<run_id>.json` itself. The record path is computed from this package's `assetDir`, and every finance-venv spawn sets `FINDECK_ASSET_DIR` to that same absolute root, overriding an ambient value. Its absent approval seam is deliberate: the tool only submits detached work and no result exists at call time, so what it may run is bounded by the asset verbs the library exposes.
 
 <a id="dev-note"></a>
 ### Dev Note

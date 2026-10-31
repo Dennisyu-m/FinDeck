@@ -72,7 +72,7 @@ kind: "package-group"
 | [`ui-agent-preset/`](ui-agent-preset/README.zh.md) | 选择会话的 agent 预设并编写预设组合 | — |
 | [`ui-settings/`](ui-settings/README.zh.md) | 承载设置界面及其扩展区域 | — |
 | [`ui-settings-general/`](ui-settings-general/README.zh.md) | 设置壳：基于分区台账的主导航与单页对话框 | — |
-| [`ui-pages/`](ui-pages/README.zh.md) | 主导航页（定时任务、环境与组件）与帮助页 | — |
+| [`ui-pages/`](ui-pages/README.zh.md) | 主导航页（会话提醒、环境与组件）与帮助页 | — |
 | [`ui-assets/`](ui-assets/README.zh.md) | 拥有资产中枢分区：资产网格与列表、研究报告、模式流程、血缘图与脸详情 | — |
 | [`ui-projects/`](ui-projects/README.zh.md) | 拥有消费 `workspace` 与 `agentPresets` Remote namespace 的项目管理分区 | — |
 | [`ui-roundtable/`](ui-roundtable/README.zh.md) | 拥有圆桌主页及其引导输入界面 | — |

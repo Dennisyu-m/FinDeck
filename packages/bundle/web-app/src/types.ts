@@ -18,13 +18,19 @@ export interface PluginPatchRow {
   disabled?: boolean
 }
 
-/** The user-layer patch write request (one entry at a time). */
-export interface PluginPatchWriteRequest {
+/** One loader id in a user-layer patch write. */
+export interface PluginPatchWriteEntry {
   /** Loader entry id to target. */
   id: string
   /** The next user-layer disable fact: true/false, or null to drop the row. */
   disabled: boolean | null
 }
+
+/**
+ * A patch write: one entry, or a group applied in one file write.
+ * A single entry is the one-element form of the group.
+ */
+export type PluginPatchWriteRequest = PluginPatchWriteEntry | readonly PluginPatchWriteEntry[]
 
 /**
  * Research-asset page vocabulary: the read-only overview the page's
@@ -427,6 +433,45 @@ export interface ScheduleOverview {
   unreadable: number
 }
 
+/** One automation task as the scheduled-tasks page renders it. */
+export interface AutomationTaskView {
+  /** Pipeline name. */
+  name: string
+  /** Task kind. This generation is `pipeline`. */
+  kind: string
+  /** `manual`, `cron`, or `interval`. */
+  triggerKind: string
+  /** Cron expression, when `triggerKind` is `cron`. */
+  schedule?: string
+  /** Interval in seconds, when `triggerKind` is `interval`. */
+  everySeconds?: number
+  /** Next armed fire, local ISO. Absent when the task is not armed. */
+  nextRunAt?: string
+  /** Timestamp of the latest pipeline-runs line. */
+  lastTs?: string
+  /** Status of that line: `ok`, `failed`, `skipped`, or a python step status. */
+  lastStatus?: string
+  /** Process exit code when the runner recorded one. */
+  lastExitCode?: number | null
+  /** True when the runner aborted the process for its own timeout. */
+  lastTimedOut?: boolean
+}
+
+/** The scheduled-tasks page's task list. */
+export interface AutomationTaskList {
+  tasks: AutomationTaskView[]
+}
+
+/** Outcome of one remote immediate run. */
+export interface AutomationRunResultView {
+  name: string
+  /** `ok`, `failed`, or `skipped`. */
+  status: string
+  exitCode: number | null
+  timedOut: boolean
+  signal: string | null
+}
+
 /** One schedule-control operation target. */
 export interface ScheduleControlRequest {
   /** Owning session id (opaque string). */
@@ -448,3 +493,340 @@ export type ScheduleManagementResult = ScheduleManagementOutcome
  * boundary type stays importable without the package's host face.
  */
 export type ScheduleRemovalResult = ScheduleRemovalOutcome
+
+/**
+ * Desk wire vocabulary: task definitions, runs, reports, feedback, templates,
+ * and the scorecard. Every field is plain JSON so the Remote codec carries it
+ * without importing the host service's domain types.
+ */
+
+/** One desk trigger as the task editor and task list carry it. */
+export interface DeskTriggerWire {
+  /** cron | interval | event | thesis-due. */
+  kind: string
+  /** Cron expression when `kind` is `cron`. */
+  schedule?: string
+  /** Interval seconds when `kind` is `interval`. */
+  everySeconds?: number
+  /** Webhook adapter kind when `kind` is `event`. */
+  name?: string
+}
+
+/** One refresh declaration before the deterministic signal step. */
+export interface DeskRefreshWire {
+  /** verb | pipeline. */
+  kind: string
+  /** Asset name for a verb refresh. */
+  asset?: string
+  /** Verb name for a verb refresh. */
+  verb?: string
+  /** Pipeline name for a pipeline refresh. */
+  name?: string
+}
+
+/** One watched object. */
+export interface DeskTargetWire {
+  /** symbol | theme | thesis | asset | workbench. */
+  kind: string
+  /** Symbol, theme text, thesis id, asset name, or workbench name. */
+  ref: string
+  /** Refresh declaration; absent when the target has no deterministic refresh. */
+  refresh?: DeskRefreshWire
+}
+
+/** One task budget. */
+export interface DeskBudgetWire {
+  /** Cumulative run budget across model requests. */
+  tokens: number
+  /** Wall-clock cap for the whole run. */
+  wallSeconds: number
+  /** Per-request output cap; absent uses the runner default. */
+  maxOutputTokens?: number
+}
+
+/** One complete task definition on the wire. */
+export interface DeskTaskInputWire {
+  name: string
+  display_name: string
+  goal: string
+  enabled?: boolean
+  targets: DeskTargetWire[]
+  triggers: DeskTriggerWire[]
+  /** always | changes. */
+  report: string
+  budget: DeskBudgetWire
+}
+
+/** One task row the desk page renders. */
+export interface DeskTaskViewWire {
+  name: string
+  displayName: string
+  goal: string
+  enabled: boolean
+  /** always | changes. */
+  report: string
+  targets: DeskTargetWire[]
+  triggers: DeskTriggerWire[]
+  budget: DeskBudgetWire
+  path: string
+  nextRunAt: string | null
+  running: boolean
+  last: {
+    ts: string
+    status: string
+    exitCode: number | null
+    timedOut: boolean
+  } | null
+}
+
+/** Task-list result. */
+export interface DeskListValue {
+  tasks: DeskTaskViewWire[]
+  problems: string[]
+}
+
+/** One task detail result. */
+export interface DeskShowValue {
+  task: DeskTaskViewWire
+  recent: DeskRunWire[]
+  problems: string[]
+}
+
+/** One signal row from a desk run. */
+export interface DeskSignalWire {
+  kind: string
+  ref: string
+  /** move | quiet | stale | recorded | missing-source | due. */
+  status: string
+  asset?: string
+  version?: number
+  note?: string
+  /** Latest bar date or declared data currency date. */
+  asOf?: string | null
+  /** Close-to-close change, as a fraction. */
+  change?: number | null
+  /** Last close. */
+  close?: number | null
+  /** Volume relative to the previous bar. */
+  volumeRatio?: number | null
+  /** Thesis facts when the target kind is thesis. */
+  thesisStatus?: string
+  conclusion?: string
+  dueDate?: string
+  overdue?: boolean
+}
+
+/** One input asset version a run read. */
+export interface DeskInputWire {
+  asset: string
+  version: number
+  kind?: string
+}
+
+/** Cumulative usage one run counted. */
+export interface DeskUsageWire {
+  inputTokens: number
+  outputTokens: number
+  totalTokens: number
+  cacheReadTokens: number | null
+  cacheWriteTokens: number | null
+  reasoningTokens: number | null
+  requests: number
+  unknown: boolean
+}
+
+/** One run record as the list and detail show it. */
+export interface DeskRunWire {
+  runId: string
+  task: string
+  trigger: {
+    kind: string
+    schedule?: string
+    everySeconds?: number
+    name?: string
+    deliveryId?: string
+    source?: string
+    theses?: string[]
+  }
+  /** running | ok | degraded | no-change | data-insufficient | budget | timeout | cancelled | failed | skipped. */
+  status: string
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  sessionId: string | null
+  report: {
+    asset: string
+    version: number
+    dir: string
+    tags: string[]
+    fallback: boolean
+  } | null
+  signals: DeskSignalWire[]
+  inputs: DeskInputWire[]
+  summary: {
+    moves: number
+    quiet: number
+    stale: number
+    missing: number
+    due: number
+    recorded: number
+  } | null
+  stopReason: string | null
+  exitCode: number | null
+  signal: string | null
+  timedOut: boolean
+  cancelled: boolean
+  usage: DeskUsageWire | null
+  error: string | null
+  stderrTail: string | null
+  reportExpected: boolean
+}
+
+/** Report sections as the report card renders them. */
+export interface DeskReportSectionsWire {
+  points: string[]
+  moves: string
+  theses: string
+  decisions: { kind: string; text: string }[]
+}
+
+/** One archived report plus its text and sources. */
+export interface DeskReportValue {
+  asset: string
+  version: number
+  dir: string
+  tags: string[]
+  fallback: boolean
+  title: string | null
+  sections: DeskReportSectionsWire | null
+  markdown: string | null
+  sources: DeskInputWire[]
+  sourcesComplete: boolean
+}
+
+/** One decision row with its handled state. */
+export interface DeskDecisionWire {
+  id: string
+  kind: string
+  text: string
+  /** open | handled. */
+  status: string
+  handledAt: string | null
+}
+
+/** One run with its decoded report and decisions. */
+export interface DeskRunDetailValue {
+  run: DeskRunWire
+  report: DeskReportValue | null
+  decisions: DeskDecisionWire[]
+}
+
+/** Run-list query. */
+export interface DeskRunQueryWire {
+  task?: string
+  since?: string
+  statuses?: string[]
+  limit?: number
+}
+
+/** Run-list result. */
+export interface DeskRunListValue {
+  runs: DeskRunWire[]
+  truncated: boolean
+  problems: string[]
+}
+
+/** One feedback mark. */
+export interface DeskFeedbackWire {
+  id: string
+  ts: string
+  task: string
+  runId: string
+  reportAsset: string
+  reportVersion: number
+  /** useful | useless | handled. */
+  kind: string
+  note: string | null
+  active: boolean
+  revokedAt: string | null
+}
+
+/** One template the page can prefill. */
+export interface DeskTemplateWire {
+  id: string
+  name: string
+  description: string
+  available: boolean
+  task: DeskTaskInputWire
+}
+
+/** One scorecard metric with its window, denominator, and samples. */
+export interface DeskScoreMetricWire {
+  numerator: number
+  denominator: number
+  rate: number | null
+  samples: number
+}
+
+/** The value-desk scorecard. */
+export interface DeskScorecardValue {
+  window: { days: number; from: string; to: string }
+  theses: DeskScoreMetricWire & { hits: number; misses: number }
+  reports: DeskScoreMetricWire & { useful: number; useless: number; handled: number }
+  assets: DeskScoreMetricWire & { libraryAssets: number; touched: number }
+  problems: string[]
+}
+
+/** Follow-up seed for one report. */
+export interface DeskReportBriefValue {
+  seed: string
+  missingSources: string[]
+  /** False for older reports that predate AI-stage source recording. */
+  sourcesComplete: boolean
+}
+
+/**
+ * Workbench (Work mode) vocabulary: the workbench definition list and the
+ * multi-asset creation entry the research-assets page uses.
+ */
+
+/** One workbench definition as the Work tab lists it. */
+export interface WorkbenchView {
+  name: string
+  displayName: string
+  description: string
+  assets: string[]
+  hasConventions: boolean
+  path: string
+  /** True when the definition lives in the user's own directory. */
+  userDefined: boolean
+}
+
+/** The workbench list and any unreadable definition. */
+export interface WorkbenchListValue {
+  workbenches: WorkbenchView[]
+  problems: string[]
+}
+
+/** One user-authored Work mode definition from selected assets. */
+export interface CreateWorkRequest {
+  /** Kebab-case name; the file is `<name>.yaml`. */
+  name: string
+  displayName: string
+  description: string
+  /** Selected library asset names; at least one, all must exist. */
+  assets: string[]
+  /** Optional execution conventions copied into the definition. */
+  conventions?: {
+    verbs?: string[]
+    notes?: string
+  }
+}
+
+/** Result of creating one Work mode definition. */
+export interface CreateWorkResult {
+  name: string
+  path: string
+  /** The generated session seed (the workbench brief). */
+  seed: string
+}

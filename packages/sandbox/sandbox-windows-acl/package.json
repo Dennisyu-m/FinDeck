@@ -27,20 +27,24 @@
     "lib/index.js",
     "lib/runner.js",
     "lib/types-*.js",
+    "assets",
     "lib/types/**/*.d.ts"
   ],
   "license": "MIT",
   "peerDependencies": {
     "@deepseek-ai/cordis": "workspace:^",
+    "@deepseek-ai/dsh-skill": "workspace:^",
     "@deepseek-ai/dsh-subprocess": "workspace:^"
   },
   "dependencies": {
     "@deepseek-ai/dsh-win32-process": "workspace:^",
-    "koffi": "^3.1.0"
+    "koffi": "^3.1.0",
+    "yaml": "^2.4.2"
   },
   "devDependencies": {
     "@deepseek-ai/dsh-pwsh-local": "workspace:^",
     "@deepseek-ai/dsh-sandbox-local": "workspace:^",
+    "@deepseek-ai/dsh-skill": "workspace:^",
     "@deepseek-ai/cordis": "workspace:^",
     "@deepseek-ai/dsh-subprocess": "workspace:^"
   }

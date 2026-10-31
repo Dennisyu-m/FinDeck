@@ -20,6 +20,7 @@ const HELP_FEATURES: readonly { id: string; title: PagesLocaleKey; where: PagesL
   { id: 'assets', title: 'help.feature.assets.title', where: 'help.feature.assets.where', body: 'help.feature.assets.body' },
   { id: 'thesis', title: 'help.feature.thesis.title', where: 'help.feature.thesis.where', body: 'help.feature.thesis.body' },
   { id: 'redblue', title: 'help.feature.redblue.title', where: 'help.feature.redblue.where', body: 'help.feature.redblue.body' },
+  { id: 'automation', title: 'help.feature.automation.title', where: 'help.feature.automation.where', body: 'help.feature.automation.body' },
   { id: 'schedule', title: 'help.feature.schedule.title', where: 'help.feature.schedule.where', body: 'help.feature.schedule.body' },
   { id: 'roundtable', title: 'help.feature.roundtable.title', where: 'help.feature.roundtable.where', body: 'help.feature.roundtable.body' },
   { id: 'dataenv', title: 'help.feature.dataenv.title', where: 'help.feature.dataenv.where', body: 'help.feature.dataenv.body' },

@@ -82,6 +82,9 @@ export function apply(ctx: ClientContext): void {
     id: 'projects',
     order: 3,
     label: () => t('nav'),
+    icon: 'folder',
+    place: 'settings',
+    settingsOrder: 2,
     locale: NS,
     inject: () => ({
       renameProject, setProjectDir, resetProjectDir, ensureProject, createProject, pickDirectory, loadPresets,

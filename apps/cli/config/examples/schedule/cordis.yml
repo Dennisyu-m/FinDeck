@@ -1,7 +1,6 @@
-# Opt-in Schedule patch over the shipped Web composition. The base bundle
-# already mounts the `schedule` host service under that id, so this overlay only
-# inserts the browser time-zone source and enables the Schedule page. The page
-# lists only roots published after this overlay loads.
+# Opt-in Schedule patch over the shipped Web composition. The owner observes
+# only roots published after this overlay loads. Base already contains
+# `id: schedule`; inserting that id again is rejected as a duplicate.
 
 - insert:
     - id: time-context

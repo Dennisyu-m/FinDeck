@@ -18,7 +18,7 @@
       "path": "../../core/tools"
     },
     {
-      "path": "../../util/home-paths"
+      "path": "../thesis-registry"
     }
   ]
 }

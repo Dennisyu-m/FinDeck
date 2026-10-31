@@ -17,6 +17,11 @@ export const zh = {
   'plan.approve': '确认执行',
   'plan.decline': '拒绝',
   'plan.discuss': '去聊天里说',
+  'pending.title': '等待补充回答',
+  'pending.note': '前台等待已超时，Agent 已继续工作；你仍可在这里回答。',
+  'pending.submit': '提交回答',
+  'pending.skipHint': '留空即视为跳过该题。',
+  'pending.queued': '回答已排队，等待 Agent 接收。',
 } satisfies Record<string, string>
 
 /** The question namespace key union. */
@@ -39,4 +44,9 @@ export const en = {
   'plan.approve': 'Approve',
   'plan.decline': 'Refuse',
   'plan.discuss': 'Chat about it',
+  'pending.title': 'Awaiting your answer',
+  'pending.note': 'The foreground wait timed out and the agent continued; you can still answer here.',
+  'pending.submit': 'Submit answer',
+  'pending.skipHint': 'Leave a question empty to skip it.',
+  'pending.queued': 'Reply queued for the agent.',
 } satisfies Record<QuestionKey, string>

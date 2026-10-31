@@ -25,6 +25,7 @@ import {
   loadOptionalPatches,
   loadOverlayPatches,
   loadProfile,
+  migrateLegacyAutomationSwitch,
   PROFILE_PATCH_FILENAME,
   watchUserPatches,
   type Profile,
@@ -160,6 +161,7 @@ async function composeProfile(
 ): Promise<ComposedProfile> {
   const profile = prepareProfile(name)
   await healProfilesModuleFallback({ installAnchor: INSTALL_ANCHOR, profile })
+  migrateLegacyAutomationSwitch(homePatchPath())
   const homePatches = loadOptionalPatches(NAME, homePatchPath()) ?? []
   const overlays = patchFiles.flatMap(file => loadOverlayPatches(NAME, resolve(file)))
   const bundlePatches = profile.layers.flatMap(layer => layer.patches)

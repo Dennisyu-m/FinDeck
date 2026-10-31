@@ -198,6 +198,9 @@ export function apply(ctx: ClientContext): void {
     id: 'general',
     order: 90,
     label: () => t('general.nav'),
+    icon: 'gear',
+    place: 'settings',
+    settingsOrder: 8,
     locale: NS,
     children: { 'settings.general.item': { kind: 'list', scope: 'root' } },
   }, GeneralSection))

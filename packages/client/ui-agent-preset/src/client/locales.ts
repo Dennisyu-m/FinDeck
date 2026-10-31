@@ -3,7 +3,7 @@
 /** Locale keys this surface renders. */
 export type AgentPresetSettingsKey =
   | 'error' | 'userTrust'
-  | 'nav' | 'sectionIntro' | 'builtIn' | 'setDefault' | 'view'
+  | 'nav' | 'rail' | 'sectionIntro' | 'builtIn' | 'setDefault' | 'view'
   | 'presetStandardName' | 'presetStandardDescription'
   | 'presetDeepThinkName' | 'presetDeepThinkDescription'
   | 'presetMinimalName' | 'presetMinimalDescription'
@@ -24,6 +24,7 @@ export const en: Record<AgentPresetSettingsKey, string> = {
   error: 'Could not load agent presets.',
   userTrust: 'Custom',
   nav: 'Agent presets',
+  rail: 'Presets',
   sectionIntro:
     'A preset is the plugin composition one session\'s agent runs — its tools, prompt, and capabilities. '
     + 'Duplicate an existing one and make it yours, or ask the agent to draft one for you.',
@@ -89,6 +90,7 @@ export const zh: Record<AgentPresetSettingsKey, string> = {
   error: '无法加载 Agent 预设。',
   userTrust: '自定义',
   nav: 'Agent 预设',
+  rail: '预设',
   sectionIntro: '预设即一个会话的 Agent 所运行的插件组装 —— 它的工具、提示词与能力。复制一份既有预设改成自己的，或让 Agent 帮你起草一个。',
   builtIn: '内置',
   setDefault: '设为默认',

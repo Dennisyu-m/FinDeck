@@ -608,6 +608,53 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'automationRunner',
+    summary: 'Schedules pipeline yaml files and registered desk tasks and runs them with the finance venv and the desk profile.',
+    description: 'Schedules pipeline yaml files and registered desk tasks and runs them with the finance venv and the desk profile.',
+    methods: [
+      {
+        signature: 'list(): AutomationTaskSnapshot[]',
+        description: 'Every loaded task, with its next fire and the latest run line. The scheduled-tasks page filters to `kind: \'pipeline\'`; the desk page uses the `desk` rows.',
+        parameters: [],
+        returns: 'a snapshot copied from the current timer state.',
+      },
+      {
+        signature: 'runNow(name: string): Promise<AutomationRunResult>',
+        description: 'Run one pipeline now. A task that is already running is recorded as `skipped` and does not start a second process.',
+        parameters: [{ name: 'name', description: 'pipeline name, matching the yaml filename.' }],
+        returns: 'the outcome. `timedOut` is independent of `exitCode`.',
+      },
+      {
+        signature: 'setDeskTasks(tasks: readonly DeskTaskRegistration[]): void',
+        description: 'Replace the registered desk tasks. The desk service calls this on load, after a task write or enable toggle, and with an empty list on unload. A removed or renamed task\'s in-flight run is cancelled; editing a task keeps its current run, which continues on the snapshot taken at start.',
+        parameters: [{ name: 'tasks', description: 'the complete desk task set.' }],
+      },
+      {
+        signature: 'isDeskRunning(name: string): boolean',
+        description: 'Whether one desk task currently has a run in flight.',
+        parameters: [{ name: 'name', description: 'desk task name.' }],
+        returns: 'true while a run has not settled.',
+      },
+      {
+        signature: 'cancelDeskTask(name: string): boolean',
+        description: 'Cancel the active run of one desk task.',
+        parameters: [{ name: 'name', description: 'desk task name.' }],
+        returns: 'whether a run was active. The run records `cancelled` when it settles.',
+      },
+      {
+        signature: 'async runDeskTask(name: string, trigger: DeskRunTrigger = { kind: \'manual\' }): Promise<DeskRunOutcome>',
+        description: 'Run one registered desk task now or from an external trigger.',
+        parameters: [{ name: 'name', description: 'desk task name.' }, { name: 'trigger', description: 'run origin; defaults to `manual`.' }],
+        returns: 'the settled run outcome.',
+      },
+      {
+        signature: 'setPipelineTasks(files: readonly PipelineFile[]): void',
+        description: 'Replace the registered pipeline set. The pipeline-scheduler plugin owns loading `finance/pipelines/*.yaml`; this method only schedules what it is given, so unloading that plugin stops pipelines and leaves desk tasks armed (and vice versa).',
+        parameters: [{ name: 'files', description: 'parsed pipeline definitions; their names must not collide with a registered desk task.' }],
+      },
+    ],
+  },
+  {
     key: 'clientModules',
     summary: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows.',
     description: 'The web plugin table service: incremental `dsh.client` scan + wire composition + bundle route + index injection rows. Construction runs the activation scan synchronously — a malformed declaration or missing bundle among the already-loaded entries aggregates into one loud throw (FAILED fiber; the boot activation audit reports it).',
@@ -817,9 +864,121 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
       },
       {
         signature: 'async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions>',
-        description: 'Prepare every currently registered field from one immutable base request. Preparation failures reject before HTTP dispatch. Field values are cloned and frozen; providers retain no mutable alias to the outgoing request.',
+        description: 'Prepare every currently registered field from one immutable base request. A provider whose preparation throws, or whose value cannot be cloned, is logged and omitted from this request; only cancellation rejects. Field values are cloned and frozen; providers retain no mutable alias to the outgoing request.',
         parameters: [{ name: 'request', description: 'exact serialized request facts before extension fields.' }],
         returns: 'detached fields and their idempotent joint acceptance transaction.',
+      },
+    ],
+  },
+  {
+    key: 'desk',
+    summary: 'The desk host service.',
+    description: 'The desk host service. All public methods wait for the initial task load, so a page opened immediately after the switch flips sees a settled state.',
+    methods: [
+      {
+        signature: 'async list(): Promise<DeskListResult>',
+        description: 'Every task file plus the current runtime state.',
+        parameters: [],
+        returns: 'the task views and per-file problems.',
+      },
+      {
+        signature: 'async show(name: string): Promise<{ spec: DeskTaskSpec; view: DeskTaskView; recent: readonly DeskRun[] }>',
+        description: 'One task\'s complete definition.',
+        parameters: [{ name: 'name', description: 'task name.' }],
+        returns: 'the spec and its view.',
+        throws: ['when the task does not exist.'],
+      },
+      {
+        signature: 'async write(spec: DeskTaskSpec): Promise<DeskTaskView>',
+        description: 'Create or replace one task file after the Python validator accepts it.',
+        parameters: [{ name: 'spec', description: 'complete definition.' }],
+        returns: 'the stored view.',
+        throws: ['when the definition is invalid, the name collides with a pipeline or an unrelated file, or the atomic write fails.'],
+      },
+      {
+        signature: 'async setEnabled(name: string, enabled: boolean): Promise<DeskTaskView>',
+        description: 'Toggle one task\'s scheduling without touching its other fields.',
+        parameters: [{ name: 'name', description: 'task name.' }, { name: 'enabled', description: 'next enabled state.' }],
+        returns: 'the stored view.',
+      },
+      {
+        signature: 'async runNow(name: string): Promise<DeskRunOutcome>',
+        description: 'Start one task now, regardless of its enabled state. The schedule is not rewritten; a disabled task runs once and stays unarmed.',
+        parameters: [{ name: 'name', description: 'task name.' }],
+        returns: 'the settled run outcome.',
+      },
+      {
+        signature: 'cancel(name: string): boolean',
+        description: 'Cancel the active run of one task.',
+        parameters: [{ name: 'name', description: 'task name.' }],
+        returns: 'whether a run was active.',
+      },
+      {
+        signature: 'async runs(query: DeskRunQuery = {}): Promise<DeskRunList>',
+        description: 'Merged run records, newest first.',
+        parameters: [{ name: 'query', description: 'task, start time, status, and limit filters.' }],
+        returns: 'the runs, plus whether the byte window cut older history.',
+      },
+      {
+        signature: 'async runDetail(task: string, runId: string): Promise<DeskRunDetail>',
+        description: 'One run with its report sections and decision state.',
+        parameters: [{ name: 'task', description: 'task name.' }, { name: 'runId', description: 'exact run id.' }],
+        returns: 'the run detail.',
+        throws: ['when the run is not in the read window.'],
+      },
+      {
+        signature: 'async templates(): Promise<DeskTemplate[]>',
+        description: 'The two starter templates built from the current asset library.',
+        parameters: [],
+        returns: 'the templates; `available` is false when no usable asset exists.',
+      },
+      {
+        signature: 'async reportBrief(task: string, runId: string): Promise<DeskReportBrief>',
+        description: 'Build the first message for a follow-up session from one report: the exact report version, run id, and input asset versions, with missing sources named rather than replaced by the latest version.',
+        parameters: [{ name: 'task', description: 'task name.' }, { name: 'runId', description: 'exact run id.' }],
+        returns: 'the seed text and the sources the library can no longer serve.',
+      },
+      {
+        signature: 'async feedback(input: DeskFeedbackInput): Promise<DeskFeedbackRow>',
+        description: 'Record one useful/useless/handled mark bound to a task, run, and report version.',
+        parameters: [{ name: 'input', description: 'task, run, kind, and optional note.' }],
+        returns: 'the stored row.',
+      },
+      {
+        signature: 'async feedbackList(): Promise<DeskFeedbackRow[]>',
+        description: 'Every feedback mark with its active state, newest first.',
+        parameters: [],
+        returns: 'the rows.',
+      },
+      {
+        signature: 'async revokeFeedback(id: string): Promise<boolean>',
+        description: 'Revoke one feedback mark without deleting its history.',
+        parameters: [{ name: 'id', description: 'set row id.' }],
+        returns: 'whether the mark existed.',
+      },
+      {
+        signature: 'async resetPreferences(): Promise<string>',
+        description: 'Reset the preference summary: earlier feedback stays visible but stops shaping interpretation.',
+        parameters: [],
+        returns: 'the reset instant.',
+      },
+      {
+        signature: 'async setDecision(input: DecisionActionInput): Promise<readonly DeskDecisionView[]>',
+        description: 'Decide what the user did with one "待你决策" item.',
+        parameters: [{ name: 'input', description: 'task, run, decision id, and next state.' }],
+        returns: 'the updated decision list for that run.',
+      },
+      {
+        signature: 'async adoptThesis(input: AdoptThesisInput): Promise<{ id: string; dueDate: string; status: string }>',
+        description: 'Adopt one report conclusion as a tracked thesis.',
+        parameters: [{ name: 'input', description: 'complete thesis fields.' }],
+        returns: 'the stored thesis record.',
+      },
+      {
+        signature: 'async scorecard(windowDays: number = this.config.preferenceWindowDays): Promise<DeskScorecard>',
+        description: 'The value-desk scorecard over one window.',
+        parameters: [{ name: 'windowDays', description: 'window length in days; defaults to the preference window.' }],
+        returns: 'each metric with its window, denominator, and sample count.',
       },
     ],
   },
@@ -2937,6 +3096,50 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     ],
   },
   {
+    key: 'thesis',
+    summary: 'Durable thesis registry.',
+    description: 'Durable thesis registry. Reads parse strictly; one unreadable manifest fails the whole listing rather than disappearing from the score.',
+    methods: [
+      {
+        signature: 'async list(): Promise<ThesisRecord[]>',
+        description: 'Every thesis, sorted by due date then id.',
+        parameters: [],
+        returns: 'the records with derived status and overdue flags.',
+      },
+      {
+        signature: 'async get(id: string): Promise<ThesisRecord | undefined>',
+        description: 'One thesis by id.',
+        parameters: [{ name: 'id', description: 'thesis id.' }],
+        returns: 'the record, or `undefined` when the registry has no such file.',
+      },
+      {
+        signature: 'async write(input: ThesisWriteInput): Promise<ThesisRecord>',
+        description: 'Upsert one thesis. Re-writing an id updates the stated fields and keeps its check history.',
+        parameters: [{ name: 'input', description: 'the complete stated fields.' }],
+        returns: 'the stored record.',
+      },
+      {
+        signature: 'async mark(id: string, outcome: \'hit\' | \'miss\', evidence: string): Promise<ThesisRecord>',
+        description: 'Append one recheck outcome.',
+        parameters: [{ name: 'id', description: 'stored thesis id.' }, { name: 'outcome', description: 'whether the metric met its threshold.' }, { name: 'evidence', description: 'what the recheck actually measured.' }],
+        returns: 'the updated record.',
+        throws: ['when the thesis does not exist or the evidence is empty.'],
+      },
+      {
+        signature: 'async score(): Promise<ThesisScore>',
+        description: 'Registry-wide score over every check.',
+        parameters: [],
+        returns: 'the hit/miss counts and rate (`null` with no checks).',
+      },
+      {
+        signature: 'async due(today: string = localToday()): Promise<ThesisRecord[]>',
+        description: 'Theses that need a recheck today: the due date passed with no check at or after it.',
+        parameters: [{ name: 'today', description: 'local `YYYY-MM-DD`; defaults to today.' }],
+        returns: 'the overdue records in due-date order.',
+      },
+    ],
+  },
+  {
     key: 'timer',
     summary: 'Disposable timer helpers mixed into Cordis contexts.',
     description: 'Disposable timer helpers mixed into Cordis contexts.',
@@ -3164,6 +3367,26 @@ export const SERVICE_API: readonly ServiceApiEntry[] = [
     summary: '`ctx.userQuestions`: validation plus the scoped answerer waterfall.',
     description: '`ctx.userQuestions`: validation plus the scoped answerer waterfall.',
     methods: [
+      {
+        signature: '@Remote answer(agent: Agent, callId: ToolCallId, answer: AskUserQuestionAnswer): boolean',
+        description: 'Answer a continued question. The reply is steered into the agent as a user message whose source names the call; that message is also the record that closes the question in the projection.',
+        parameters: [{ name: 'agent', description: 'Live root agent for the owning Session.' }, { name: 'callId', description: 'Continued question identity.' }, { name: 'answer', description: 'Complete structured answer batch, one item per question of the call.' }],
+        returns: 'Whether the question is still continued; an accepted reply stays queued until the agent admits its user message.',
+        throws: ['{UserQuestionError} `BAD_ANSWER` when the batch does not name each question of the call exactly once, or `REPLY_QUEUED` when a reply is already waiting for admission.'],
+      },
+      {
+        signature: '@Remote({ mode: \'stream\' }) async *attachWait(agent: Agent, callId: ToolCallId, signal: AbortSignal): AsyncIterable<{ remainingMs: number }>',
+        description: 'Let one answer UI hold a live timed wait. Closing the stream releases its claim.',
+        parameters: [{ name: 'agent', description: 'Live root agent owning the question.' }, { name: 'callId', description: 'Foreground tool call to attach to.' }, { name: 'signal', description: 'Remote stream cancellation, including Client disconnect.' }],
+        returns: 'One Host-computed remaining duration, or no frames once the wait ended.',
+      },
+      {
+        signature: 'async askTimed( request: AskUserQuestionRequest & { agent: Agent }, callId: ToolCallId, timeoutMs: number, ): Promise<TimedUserQuestionResult>',
+        description: 'Foreground wait whose first settlement the Client decides: the Client rejects with `ASK_TIMED_OUT` when its countdown ends, and this method maps that code to the pending result.',
+        parameters: [{ name: 'request', description: 'Questions, live owner agent, and abort signal.' }, { name: 'callId', description: 'Tool call identity the Client card is keyed by.' }, { name: 'timeoutMs', description: 'Positive foreground wait in milliseconds.' }],
+        returns: 'The answer when it arrives inside the window, otherwise a pending result, also when no connected Client claimed the request by the deadline.',
+        throws: ['{UserQuestionError} `BAD_TIMEOUT` for a non-integer, non-positive, or oversized wait.'],
+      },
       {
         signature: 'async ask(request: AskUserQuestionRequest): Promise<AskUserQuestionAnswer>',
         description: 'Ask the scoped answerer waterfall and wait for the user\'s answer.\n\nWhen a caller supplies an agent, human interaction is valid only for the exact live runtime root. Runtime ownership, not durable session lineage, decides this boundary: an owned child has no human answerer and would block forever, while a lineage-bearing session resumed as a new runtime root may ask normally.',
@@ -4076,6 +4299,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AdmittedPromptContentPart = {\n    readonly type: \'text\';\n    readonly text: string;\n} | {\n    readonly type: \'image\';\n    readonly attachment: ImageAttachmentRef;\n} | {\n    readonly type: \'file\';\n    readonly attachment: FileAttachmentRef;\n};',
   },
   {
+    name: 'AdoptThesisInput',
+    declaration: 'export interface AdoptThesisInput {\n    readonly id: string;\n    readonly conclusion: string;\n    readonly metric: string;\n    readonly threshold: string;\n    readonly dueDate: string;\n    readonly report: string;\n    readonly assets?: readonly string[];\n}',
+  },
+  {
     name: 'Agent',
     declaration: 'export interface Agent {\n    readonly id: SessionId;\n}',
   },
@@ -4152,6 +4379,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type AgentStatus = \'idle\' | \'running\';',
   },
   {
+    name: 'AllowedModelRoute',
+    declaration: 'export interface AllowedModelRoute {\n    readonly provider: string;\n    readonly model: string;\n}',
+  },
+  {
     name: 'ApiKeyRecord',
     declaration: 'export interface ApiKeyRecord {\n    readonly kind: \'api-key\';\n    readonly key?: string;\n    readonly env?: Readonly<Record<string, string>>;\n}',
   },
@@ -4189,7 +4420,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AskUserQuestionIntent',
-    declaration: 'export type AskUserQuestionIntent = {\n    kind: \'plan-review\';\n    approve: string;\n};',
+    declaration: 'export type AskUserQuestionIntent = {\n    kind: \'plan-review\';\n    approve: string;\n    callId?: ToolCallId;\n};',
   },
   {
     name: 'AskUserQuestionItem',
@@ -4205,7 +4436,7 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   },
   {
     name: 'AskUserQuestionRequestEvent',
-    declaration: 'export interface AskUserQuestionRequestEvent {\n    questions: AskUserQuestionItem[];\n    agent?: Agent;\n    signal?: AbortSignal;\n}',
+    declaration: 'export interface AskUserQuestionRequestEvent {\n    questions: AskUserQuestionItem[];\n    agent?: Agent;\n    signal?: AbortSignal;\n    wait?: {\n        callId: ToolCallId;\n        timed?: boolean;\n    };\n}',
   },
   {
     name: 'AssembleContext',
@@ -4298,6 +4529,22 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'AuthorizationStatus',
     declaration: 'export type AuthorizationStatus = \'authorized\' | \'cancelled\';',
+  },
+  {
+    name: 'AutomationLastResult',
+    declaration: 'export interface AutomationLastResult {\n    readonly ts: string;\n    readonly status: string;\n    readonly exitCode: number | null;\n    readonly timedOut: boolean;\n    readonly signal: string | null;\n}',
+  },
+  {
+    name: 'AutomationRunResult',
+    declaration: 'export interface AutomationRunResult {\n    readonly name: string;\n    readonly status: \'ok\' | \'failed\' | \'skipped\';\n    readonly exitCode: number | null;\n    readonly timedOut: boolean;\n    readonly signal: string | null;\n}',
+  },
+  {
+    name: 'AutomationTaskSnapshot',
+    declaration: 'export interface AutomationTaskSnapshot {\n    readonly name: string;\n    readonly kind: \'pipeline\' | \'desk\';\n    readonly trigger: AutomationTrigger;\n    readonly nextRunAt: string | null;\n    readonly last: AutomationLastResult | null;\n}',
+  },
+  {
+    name: 'AutomationTrigger',
+    declaration: 'export type AutomationTrigger = {\n    readonly kind: \'manual\';\n} | {\n    readonly kind: \'cron\';\n    readonly schedule: string;\n} | {\n    readonly kind: \'interval\';\n    readonly everySeconds: number;\n};',
   },
   {
     name: 'BackendRegistry',
@@ -4544,6 +4791,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type CredentialRef = Branded<\'CredentialRef\'>;',
   },
   {
+    name: 'DecisionActionInput',
+    declaration: 'export interface DecisionActionInput {\n    readonly task: string;\n    readonly runId: string;\n    readonly decisionId: string;\n    readonly status: \'open\' | \'handled\';\n}',
+  },
+  {
     name: 'DeepSeekLlmApiExtensionMap',
     declaration: 'export interface DeepSeekLlmApiExtensionMap {\n}',
   },
@@ -4558,6 +4809,122 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'DeepSeekLlmApiJson',
     declaration: 'export type DeepSeekLlmApiJson = null | boolean | number | string | DeepSeekLlmApiJson[] | {\n    [key: string]: DeepSeekLlmApiJson;\n};',
+  },
+  {
+    name: 'DeskBudget',
+    declaration: 'export interface DeskBudget {\n    readonly tokens: number;\n    readonly wallSeconds: number;\n    readonly maxOutputTokens?: number;\n}',
+  },
+  {
+    name: 'DeskDecisionView',
+    declaration: 'export interface DeskDecisionView {\n    readonly id: string;\n    readonly kind: string;\n    readonly text: string;\n    readonly status: \'open\' | \'handled\';\n    readonly handledAt: string | null;\n}',
+  },
+  {
+    name: 'DeskFeedbackInput',
+    declaration: 'export interface DeskFeedbackInput {\n    readonly task: string;\n    readonly runId: string;\n    readonly kind: \'useful\' | \'useless\' | \'handled\';\n    readonly note?: string;\n}',
+  },
+  {
+    name: 'DeskFeedbackRow',
+    declaration: 'export interface DeskFeedbackRow {\n    readonly id: string;\n    readonly ts: string;\n    readonly task: string;\n    readonly runId: string;\n    readonly reportAsset: string;\n    readonly reportVersion: number;\n    readonly kind: \'useful\' | \'useless\' | \'handled\';\n    readonly note: string | null;\n    readonly active: boolean;\n    readonly revokedAt?: string | null;\n}',
+  },
+  {
+    name: 'DeskInputVersion',
+    declaration: 'export interface DeskInputVersion {\n    readonly asset: string;\n    readonly version: number;\n    readonly kind?: string;\n}',
+  },
+  {
+    name: 'DeskListResult',
+    declaration: 'export interface DeskListResult {\n    readonly tasks: readonly DeskTaskView[];\n    readonly problems: readonly string[];\n}',
+  },
+  {
+    name: 'DeskRefresh',
+    declaration: 'export type DeskRefresh = {\n    readonly kind: \'verb\';\n    readonly asset: string;\n    readonly verb: string;\n} | {\n    readonly kind: \'pipeline\';\n    readonly name: string;\n};',
+  },
+  {
+    name: 'DeskReportBrief',
+    declaration: 'export interface DeskReportBrief {\n    readonly seed: string;\n    readonly missingSources: readonly string[];\n    readonly sourcesComplete: boolean;\n}',
+  },
+  {
+    name: 'DeskReportDetail',
+    declaration: 'export interface DeskReportDetail {\n    readonly asset: string;\n    readonly version: number;\n    readonly dir: string;\n    readonly tags: readonly string[];\n    readonly fallback: boolean;\n    readonly title: string | null;\n    readonly sections: DeskReportSections | null;\n    readonly markdown: string | null;\n    readonly sources: readonly {\n        readonly asset: string;\n        readonly version: number;\n        readonly kind?: string;\n    }[];\n    readonly sourcesComplete: boolean;\n}',
+  },
+  {
+    name: 'DeskReportSections',
+    declaration: 'export interface DeskReportSections {\n    readonly points: readonly string[];\n    readonly moves: string;\n    readonly theses: string;\n    readonly decisions: readonly {\n        readonly kind: string;\n        readonly text: string;\n    }[];\n}',
+  },
+  {
+    name: 'DeskRun',
+    declaration: 'export interface DeskRun {\n    readonly runId: string;\n    readonly task: string;\n    readonly trigger: DeskRunTrigger;\n    readonly status: DeskRunStatus;\n    readonly startedAt: string;\n    readonly finishedAt: string | null;\n    readonly durationMs: number | null;\n    readonly sessionId: string | null;\n    readonly report: DeskRunReport | null;\n    readonly signals: readonly DeskSignalRow[];\n    readonly inputs: readonly DeskInputVersion[];\n    readonly summary: DeskSignalRecord[\'summary\'] | null;\n    readonly stopReason: string | null;\n    readonly exitCode: number | null;\n    readonly signal: string | null;\n    readonly timedOut: boolean;\n    readonly cancelled: boolean;\n    readonly usage: DeskRunUsage | null;\n    readonly error: string | null;\n    readonly stderrTail: string | null;\n    readonly reportExpected: boolean;\n}',
+  },
+  {
+    name: 'DeskRunDetail',
+    declaration: 'export interface DeskRunDetail {\n    readonly run: DeskRun;\n    readonly report: DeskReportDetail | null;\n    readonly decisions: readonly DeskDecisionView[];\n}',
+  },
+  {
+    name: 'DeskRunList',
+    declaration: 'export interface DeskRunList {\n    readonly runs: readonly DeskRun[];\n    readonly truncated: boolean;\n    readonly problems: readonly string[];\n}',
+  },
+  {
+    name: 'DeskRunOutcome',
+    declaration: 'export interface DeskRunOutcome {\n    readonly runId: string;\n    readonly status: DeskRunStatus;\n    readonly report: DeskRunReport | null;\n    readonly stopReason: string;\n}',
+  },
+  {
+    name: 'DeskRunQuery',
+    declaration: 'export interface DeskRunQuery {\n    readonly task?: string;\n    readonly since?: string;\n    readonly statuses?: readonly DeskRunStatus[];\n    readonly limit?: number;\n}',
+  },
+  {
+    name: 'DeskRunReport',
+    declaration: 'export interface DeskRunReport {\n    readonly asset: string;\n    readonly version: number;\n    readonly dir: string;\n    readonly tags: readonly string[];\n    readonly fallback: boolean;\n}',
+  },
+  {
+    name: 'DeskRunStatus',
+    declaration: 'export type DeskRunStatus = \'running\' | \'ok\' | \'degraded\' | \'no-change\' | \'data-insufficient\' | \'budget\' | \'timeout\' | \'cancelled\' | \'failed\' | \'skipped\';',
+  },
+  {
+    name: 'DeskRunTrigger',
+    declaration: 'export type DeskRunTrigger = {\n    readonly kind: \'manual\';\n} | {\n    readonly kind: \'cron\';\n    readonly schedule: string;\n} | {\n    readonly kind: \'interval\';\n    readonly everySeconds: number;\n} | {\n    readonly kind: \'event\';\n    readonly name: string;\n    readonly deliveryId?: string;\n    readonly source?: string;\n} | {\n    readonly kind: \'thesis-due\';\n    readonly theses: readonly string[];\n};',
+  },
+  {
+    name: 'DeskRunUsage',
+    declaration: 'export interface DeskRunUsage {\n    readonly inputTokens: number;\n    readonly outputTokens: number;\n    readonly totalTokens: number;\n    readonly cacheReadTokens: number | null;\n    readonly cacheWriteTokens: number | null;\n    readonly reasoningTokens: number | null;\n    readonly requests: number;\n    readonly unknown: boolean;\n}',
+  },
+  {
+    name: 'DeskScorecard',
+    declaration: 'export interface DeskScorecard {\n    readonly window: {\n        readonly days: number;\n        readonly from: string;\n        readonly to: string;\n    };\n    readonly theses: DeskScoreMetric & {\n        readonly hits: number;\n        readonly misses: number;\n    };\n    readonly reports: DeskScoreMetric & {\n        readonly useful: number;\n        readonly useless: number;\n        readonly handled: number;\n    };\n    readonly assets: DeskScoreMetric & {\n        readonly libraryAssets: number;\n        readonly touched: number;\n    };\n    readonly problems: readonly string[];\n}',
+  },
+  {
+    name: 'DeskScoreMetric',
+    declaration: 'export interface DeskScoreMetric {\n    readonly numerator: number;\n    readonly denominator: number;\n    readonly rate: number | null;\n    readonly samples: number;\n}',
+  },
+  {
+    name: 'DeskSignalRecord',
+    declaration: 'export interface DeskSignalRecord {\n    readonly runId: string;\n    readonly task: string;\n    readonly status: string;\n    readonly trigger: DeskRunTrigger;\n    readonly signals: readonly DeskSignalRow[];\n    readonly inputs: readonly DeskInputVersion[];\n    readonly summary: {\n        readonly moves: number;\n        readonly quiet: number;\n        readonly stale: number;\n        readonly missing: number;\n        readonly due: number;\n        readonly recorded: number;\n    };\n    readonly [key: string]: unknown;\n}',
+  },
+  {
+    name: 'DeskSignalRow',
+    declaration: 'export interface DeskSignalRow {\n    readonly kind: string;\n    readonly ref: string;\n    readonly status: string;\n    readonly asset?: string;\n    readonly version?: number;\n    readonly note?: string;\n    readonly [key: string]: unknown;\n}',
+  },
+  {
+    name: 'DeskTarget',
+    declaration: 'export interface DeskTarget {\n    readonly kind: \'symbol\' | \'theme\' | \'thesis\' | \'asset\' | \'workbench\';\n    readonly ref: string;\n    readonly refresh?: DeskRefresh;\n}',
+  },
+  {
+    name: 'DeskTaskRegistration',
+    declaration: 'export interface DeskTaskRegistration {\n    readonly name: string;\n    readonly path: string;\n    readonly displayName: string;\n    readonly goal: string;\n    readonly report: \'always\' | \'changes\';\n    readonly triggers: readonly DeskTrigger[];\n    readonly wallMs: number;\n    readonly tokens: number;\n    readonly maxOutputTokens: number | null;\n    readonly enabled: boolean;\n    readonly preferences: () => string | Promise<string>;\n}',
+  },
+  {
+    name: 'DeskTaskSpec',
+    declaration: 'export interface DeskTaskSpec {\n    readonly name: string;\n    readonly displayName: string;\n    readonly goal: string;\n    readonly enabled: boolean;\n    readonly targets: readonly DeskTarget[];\n    readonly triggers: readonly DeskTrigger[];\n    readonly report: \'always\' | \'changes\';\n    readonly budget: DeskBudget;\n    readonly proposedBy: \'user\';\n}',
+  },
+  {
+    name: 'DeskTaskView',
+    declaration: 'export interface DeskTaskView {\n    readonly name: string;\n    readonly displayName: string;\n    readonly goal: string;\n    readonly enabled: boolean;\n    readonly report: \'always\' | \'changes\';\n    readonly targets: readonly DeskTarget[];\n    readonly triggers: readonly DeskTrigger[];\n    readonly budget: DeskBudget;\n    readonly path: string;\n    readonly nextRunAt: string | null;\n    readonly running: boolean;\n    readonly last: {\n        readonly ts: string;\n        readonly status: string;\n        readonly exitCode: number | null;\n        readonly timedOut: boolean;\n    } | null;\n}',
+  },
+  {
+    name: 'DeskTemplate',
+    declaration: 'export interface DeskTemplate {\n    readonly id: string;\n    readonly name: string;\n    readonly description: string;\n    readonly task: DeskTaskSpec;\n    readonly available: boolean;\n}',
+  },
+  {
+    name: 'DeskTrigger',
+    declaration: 'export type DeskTrigger = {\n    readonly kind: \'cron\';\n    readonly schedule: string;\n} | {\n    readonly kind: \'interval\';\n    readonly everySeconds: number;\n} | {\n    readonly kind: \'event\';\n    readonly name: string;\n} | {\n    readonly kind: \'thesis-due\';\n};',
   },
   {
     name: 'DeveloperMessage',
@@ -5304,6 +5671,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface PermissionCatalog {\n    options: PresetOption[];\n}',
   },
   {
+    name: 'PipelineFile',
+    declaration: 'export interface PipelineFile {\n    readonly name: string;\n    readonly path: string;\n    readonly trigger: AutomationTrigger;\n}',
+  },
+  {
     name: 'PostToolDecision',
     declaration: 'export type PostToolDecision = {\n    kind: \'accept\';\n    content?: ContentBlock[];\n    value?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'accept\';\n    value: JsonValue;\n    content?: never;\n    additionalContexts?: UserMessage[];\n} | {\n    kind: \'block\';\n    feedback: ContentBlock[];\n    additionalContexts?: UserMessage[];\n};',
   },
@@ -5466,6 +5837,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'PtcRunSpec',
     declaration: 'export interface PtcRunSpec extends PtcRunRequest {\n    cwd: string;\n    timeoutMs: number | null;\n}',
+  },
+  {
+    name: 'QueueAction',
+    declaration: 'export type QueueAction = {\n    readonly kind: \'edit\';\n    readonly content: readonly ContentBlock[];\n} | {\n    readonly kind: \'remove\';\n} | {\n    readonly kind: \'steer\';\n};',
   },
   {
     name: 'ReadFileLine',
@@ -6180,6 +6555,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export interface SettingsRegisterOptions<T> {\n    base?: Partial<T>;\n    applies?: SettingsApplies;\n    validate?: (value: T) => void;\n}',
   },
   {
+    name: 'SettingsScope',
+    declaration: 'export interface SettingsScope<T> {\n    get(): T;\n    watch(callback: (next: T, prev: T) => void | Promise<void>): () => void;\n    update(patch: object): Promise<void>;\n    replace(section: object): Promise<void>;\n}',
+  },
+  {
     name: 'SettingsSecretView',
     declaration: 'export interface SettingsSecretView {\n    path: string[];\n    set: boolean;\n}',
   },
@@ -6454,6 +6833,10 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'SubagentListEntry',
     declaration: 'export type SubagentListEntry = {\n    readonly kind: \'child\';\n    readonly id: SessionId;\n    readonly activity: \'running\' | \'inactive\';\n    readonly hasChildren: boolean;\n} & ({\n    readonly mode: \'one-shot\';\n    readonly label?: string;\n} | {\n    readonly mode: \'continuable\';\n    readonly label: string;\n}) | {\n    readonly kind: \'diagnostic\';\n    readonly id: SessionId;\n    readonly reason: \'corrupt\' | \'unsupported\' | \'unavailable\';\n};',
+  },
+  {
+    name: 'SubagentModelSelectionSettings',
+    declaration: 'export interface SubagentModelSelectionSettings {\n    enabled: boolean;\n    allowedModels: AllowedModelRoute[];\n}',
   },
   {
     name: 'SubagentPromptReceipt',
@@ -6756,6 +7139,34 @@ export const TYPE_API: readonly TypeApiEntry[] = [
     declaration: 'export type TerminalWaitReason = \'stdin_read\' | \'inferred_idle\' | \'timeout\' | \'session_exit\';',
   },
   {
+    name: 'ThesisCheck',
+    declaration: 'export interface ThesisCheck {\n    readonly checkedAt: string;\n    readonly outcome: \'hit\' | \'miss\';\n    readonly evidence: string;\n}',
+  },
+  {
+    name: 'ThesisManifest',
+    declaration: 'export interface ThesisManifest {\n    readonly id: string;\n    readonly conclusion: string;\n    readonly metric: string;\n    readonly threshold: string;\n    readonly dueDate: string;\n    readonly report: string;\n    readonly assets: readonly string[];\n    readonly createdAt: string;\n    readonly checks: readonly ThesisCheck[];\n}',
+  },
+  {
+    name: 'ThesisRecord',
+    declaration: 'export interface ThesisRecord extends ThesisManifest {\n    readonly status: ThesisStatus;\n    readonly overdue: boolean;\n    readonly score: ThesisScore;\n}',
+  },
+  {
+    name: 'ThesisScore',
+    declaration: 'export interface ThesisScore {\n    readonly hits: number;\n    readonly misses: number;\n    readonly hitRate: number | null;\n}',
+  },
+  {
+    name: 'ThesisStatus',
+    declaration: 'export type ThesisStatus = \'open\' | \'hit\' | \'miss\';',
+  },
+  {
+    name: 'ThesisWriteInput',
+    declaration: 'export interface ThesisWriteInput {\n    readonly id: string;\n    readonly conclusion: string;\n    readonly metric: string;\n    readonly threshold: string;\n    readonly dueDate: string;\n    readonly report: string;\n    readonly assets?: readonly string[];\n}',
+  },
+  {
+    name: 'TimedUserQuestionResult',
+    declaration: 'export type TimedUserQuestionResult = AskUserQuestionAnswer | {\n    pending: true;\n    callId: ToolCallId;\n};',
+  },
+  {
     name: 'TokenMeasurement',
     declaration: 'export interface TokenMeasurement {\n    readonly logRevision: SessionLogOffset;\n    readonly baseline: TokenMeasurementBaseline;\n    readonly surfaceDeltaTokens: number;\n    readonly totalTokens: number;\n    readonly surfaceTokens: number;\n    readonly nodes: readonly TokenSurfaceNode[];\n}',
   },
@@ -6774,6 +7185,14 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'ToolAdditionBlock',
     declaration: 'export interface ToolAdditionBlock {\n    type: \'tool-addition\';\n    toolName: string;\n    tool?: never;\n}',
+  },
+  {
+    name: 'ToolCallBlock',
+    declaration: 'export interface ToolCallBlock {\n    type: \'tool-call\';\n    id: ToolCallId;\n    name: string;\n    arguments: string;\n}',
+  },
+  {
+    name: 'ToolCallId',
+    declaration: 'export type ToolCallId = Branded<\'ToolCallId\'>;',
   },
   {
     name: 'ToolCallKind',
@@ -7018,22 +7437,6 @@ export const TYPE_API: readonly TypeApiEntry[] = [
   {
     name: 'VerifiedWebhookDelivery',
     declaration: 'export interface VerifiedWebhookDelivery<K extends string = string> {\n    readonly kind: K;\n    readonly source: WebhookSourceId;\n    readonly deliveryId: WebhookDeliveryId;\n    readonly event: WebhookEventOf<K>;\n    readonly receivedAt: number;\n}',
-  },
-  {
-    name: 'WebBootBatch',
-    declaration: 'export interface WebBootBatch {\n    phase: WebBootBatchPhase;\n    url: string;\n    rev: string;\n    entries: string[];\n}',
-  },
-  {
-    name: 'WebBootBatchPhase',
-    declaration: 'export type WebBootBatchPhase = \'bootstrap\' | \'application\';',
-  },
-  {
-    name: 'WebBootEntry',
-    declaration: 'export interface WebBootEntry {\n    id: string;\n    url: string;\n    rev: string;\n    inject?: string[];\n    immediately?: boolean;\n    external?: string[];\n}',
-  },
-  {
-    name: 'WebBootGraph',
-    declaration: 'export interface WebBootGraph {\n    rev: string;\n    entries: WebBootEntry[];\n    batches: WebBootBatch[];\n}',
   },
   {
     name: 'WebFetchBody',

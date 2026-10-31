@@ -6,11 +6,11 @@
 
 | 路径 | 内容 |
 |---|---|
-| `skills/` | AI 的"手册"（13 个），挂载进每个会话 |
+| `skills/` | AI 的"手册"（14 个），挂载进每个会话 |
 | `pipelines/` | 定时资产流水线（`<名字>.yaml` 定义 + 步骤脚本）：`daily-refresh`（面板 → 模型 → 日报）、`weekly-healthcheck`（资产体检报告） |
 | `face-spec/` | 资产脸规范：`face.schema.json` + `validate_face.py` + examples，以及 `verb-bridge.md`（脸执行库内 verb 的协议） |
-| `workbenches/` | Work 模式定义（`<名字>.yaml`）：具名资产集合 + 运行约定，由 `python -m findeck.workbench` 读取（`list`/`show`/`validate`） |
-| `python/findeck/` | 内置工具箱模块：`assets`（全局资产库）、`background`（后台 run 记录，供 `verb_bridge` 与 `pipeline` 的 CLI 共用）、`charts`（图表工厂）、`pipeline`（pipeline.yaml 校验器/执行器）、`quickmodels`（统一建模）、`snapshot`（数据快照）、`verb_bridge`（face verb 执行桥）、`workbench`（workbench.yaml 校验器与 brief 生成器） |
+| `workbenches/` | 随产品交付的 Work 模式定义（`<名字>.yaml`）：具名资产集合 + 运行约定，由 `python -m findeck.workbench` 读取（`list`/`show`/`validate`）；用户从资产页创建的定义放 `<家目录>/workbenches/`，同名时优先 |
+| `python/findeck/` | 内置工具箱模块：`assets`（全局资产库）、`background`（后台 run 记录，供 `verb_bridge` 与 `pipeline` 的 CLI 共用）、`charts`（图表工厂）、`desk`（值班任务 yaml 校验器）、`pipeline`（pipeline.yaml 校验器/执行器）、`quickmodels`（统一建模）、`snapshot`（数据快照）、`verb_bridge`（face verb 执行桥）、`workbench`（workbench.yaml 校验器与 brief 生成器） |
 | `python/.venv/` | 数据环境（由 setup 脚本创建；通过 `.pth` 注册 findeck 包） |
 | `python/requirements-data.txt` | 预装清单，带上界（数据 + sklearn/lightgbm/statsmodels） |
 | `python/setup-env.ps1` / `.sh` | 幂等引导脚本（清华镜像优先，`FD_PIP_INDEX` 可覆盖） |
@@ -43,9 +43,10 @@
 | `findeck-portfolio` | 组合构建：等权/最小方差/风险平价/MVO |
 | `findeck-macro-playbook` | 宏观剧本：美林时钟/利率传导/信用周期/政策 |
 | `findeck-python-env` | 数据环境使用手册（路径/镜像/缓存/排障） |
-| `findeck-pipeline` | 资产流水线：pipeline.yaml 格式、步骤 marker 协议、手动跑法与 schedule_create 定时登记、失败语义 |
+| `findeck-pipeline` | 资产流水线：pipeline.yaml 格式、步骤 marker 协议、手动跑法、由 automation-runner 按 yaml trigger 调度、失败语义 |
 | `findeck-asset-face` | 资产脸生成：8 种组件词汇表、各类资产"好脸"规则、存放位置与 manifest 声明、必须过校验器 |
 | `findeck-workbench` | Work 模式操作：`workbench.yaml` 格式、开场资产锚 brief、运行资产并汇报的纪律 |
+| `findeck-desk` | 值班运行纪律：读确定性信号表、写四段式报告、不越过执行权限 |
 
 ## 数据环境
 

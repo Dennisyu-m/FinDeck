@@ -17,7 +17,8 @@ This table connects model-visible tool names to the plugin package and service s
 | --- | --- | --- | --- | --- | --- |
 | `@deepseek-ai/dsh-tool-ask-user` | `ask_user_question` | `ctx.tools`, `ctx.userQuestions` | `tool/call`, `tool/result after a UI/provider answers the question` | - | ask_user_question pauses the tool call until the active UI/provider returns a human answer. |
 | `@deepseek-ai/dsh-tool-asset-library` | `asset_dir`, `asset_graph`, `asset_list`, `asset_run`, `asset_run_bg`, `asset_search`, `asset_show` | `ctx.tools`, `ctx.subprocess`, `ctx.approval (asset_run execution time, fail closed when absent)`, `ctx.roundtable (asset_run_bg submission time, opportunistic)` | `tool/call`, `approval/asked + approval/decided on asset_run grants`, `tool/result`, `user/message replacement asset catalogs via agent/pre-step`, `background run records under <assetDir>/runs/ and the roundtable ledger entry for asset_run_bg` | - | FinDeck research-asset seam: asset_dir/asset_list (query/kind filtering)/asset_search (AND combination of query, kind, origin, tag, verb, and dependency conditions over the version-2 index fields)/asset_show/asset_graph (transitive and reverse dependency walk) read the library index that `findeck.assets` rebuilds on every archive, asset_run executes an asset entry inside the finance Python venv behind the approval seam (missing dependencies are reported, never auto-installed), asset_run_bg submits a verb as a detached background run (always the latest version, no approval) and reports the accepted run to the roundtable engine so the submitting speaker is handed the result at a turn boundary, and the session asset catalog publishes alongside the skill catalog. |
-| `@deepseek-ai/dsh-tool-thesis` | `thesis_list`, `thesis_mark`, `thesis_show`, `thesis_write` | `ctx.tools` | `tool/call`, `tool/result` | - | FinDeck thesis registry: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest, and thesis_mark appends one recheck outcome with evidence; the same files feed the research-asset page and the scheduled recheck flow. |
+| `@deepseek-ai/dsh-tool-thesis` | `thesis_list`, `thesis_mark`, `thesis_show`, `thesis_write` | `ctx.tools`, `ctx.thesis` | `tool/call`, `tool/result` | - | FinDeck thesis registry over ctx.thesis: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest (omitted by allowWrite: false), and thesis_mark appends one recheck outcome with evidence; the same registry feeds the research-asset page, the desk scorecard, and the value desk due-date trigger. |
+| `@deepseek-ai/dsh-tool-desk` | `desk_preferences`, `desk_report` | `ctx.tools`, `ctx.subprocess` | `tool/call`, `tool/result`, `desk_report archive through python -m findeck.desk`, `per-run audit.jsonl rows for failed tool calls` | - | Value-desk run tools: desk_preferences reads the deterministic feedback summary prepared for this run, and desk_report archives the four-section report through the repository validator with the run id, session id, and input versions supplied by the host; failed and refused tool calls recorded in the run audit become report decisions. |
 | `@deepseek-ai/dsh-redblue` | `rb_check` | `ctx.tools`, `ctx.settings`, `ctx.commands` | `tool/call`, `tool/result`, `user/message via agent.inject() from rb_check` | - | FinDeck red/blue adversarial review: the /rb-check command a human runs and the rb_check tool the agent itself calls inject the same red-then-blue instruction over a report path or thesis id, with the conclusion written back to the report or recorded via thesis_mark; the prompts are user-editable under the rbcheck settings namespace. |
 | `@deepseek-ai/dsh-tool-roundtable` | `roundtable_list`, `roundtable_read` | `ctx.tools` | `tool/call`, `tool/result` | - | FinDeck roundtable archive reader: roundtable_list serves the headers of recently closed tables (roster, depth, model, turns, topic) and roundtable_read serves one complete transcript with citations; both read the <harness home>/roundtables directory the dsh-roundtable engine writes when a table closes. |
 | `@deepseek-ai/dsh-tools` | `run_code` | `ctx.tools`, `ctx.ptcRuntime (execution time)`, `ctx.systemPrompt` | `tool/call`, `one tool/ptc-dispatch-start + tool/ptc-dispatch pair per bridged sub-call`, `tool/result` | - | Owned by the tool registry as a reserved transport outside filterable capability layers under `mode: ptc` / `mode: both` (see the PTC mode Agent Note). Under `ptc` it is the registry's only wire contribution; the other visible capabilities are declared in a generated SDK section in the loaded runtime's language, and a program calls them through bindings scheduled under the native concurrency contract (submission-ordered starts and policy; concurrency-safe bodies overlap up to `maxParallelSubCalls`) that re-enter the complete guarded tool pipeline and link each nested execution to this outer result. |
@@ -462,7 +463,79 @@ Register or update one tracked thesis: a testable conclusion from a completed re
 
 Source: [`packages/skill/tool-thesis/src/index.ts`](../packages/skill/tool-thesis/src/index.ts)
 
-FinDeck thesis registry: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest, and thesis_mark appends one recheck outcome with evidence; the same files feed the research-asset page and the scheduled recheck flow.
+FinDeck thesis registry over ctx.thesis: thesis_list summarizes the durable manifests with their derived status and hit/miss score, thesis_show returns one thesis with its complete recheck history, thesis_write upserts one manifest (omitted by allowWrite: false), and thesis_mark appends one recheck outcome with evidence; the same registry feeds the research-asset page, the desk scorecard, and the value desk due-date trigger.
+
+<a id="deepseek-aidsh-tool-desk"></a>
+
+## `@deepseek-ai/dsh-tool-desk`
+
+### `desk_preferences`
+
+Read the deterministic summary of recent user feedback for this desk task: which sources were marked useful or useless, which runs were handled, and which signals the user asked to de-prioritise. Call it before interpreting signals. An empty summary means no feedback exists yet.
+
+```json
+{
+  "type": "object",
+  "properties": {}
+}
+```
+
+Source: [`packages/skill/tool-desk/src/index.ts`](../packages/skill/tool-desk/src/index.ts)
+
+### `desk_report`
+
+Archive this run's four-section report as a report asset and finish the run. Sections: points (1–5 one-line conclusions), moves (what the signals mean and what would falsify it), theses (which theses were rechecked and the result), decisions (what the user must decide). The host adds the run id, session id, and the exact input asset versions read by the run; never guess them. Call it once.
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "description": "Report title, e.g. \"2026-10-23 晨报\"."
+    },
+    "points": {
+      "type": "array",
+      "description": "1–5 conclusions, each one line.",
+      "items": {
+        "type": "string"
+      }
+    },
+    "moves": {
+      "type": "string",
+      "description": "Signal interpretation: size, plausible cause, and disconfirming evidence."
+    },
+    "theses": {
+      "type": "string",
+      "description": "Thesis rechecks: which ids were marked and the measured evidence."
+    },
+    "decisions": {
+      "type": "array",
+      "description": "Items for the user: refused calls, overturned conclusions, suggested target changes.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "text"
+        ]
+      }
+    }
+  }
+}
+```
+
+Source: [`packages/skill/tool-desk/src/index.ts`](../packages/skill/tool-desk/src/index.ts)
+
+Value-desk run tools: desk_preferences reads the deterministic feedback summary prepared for this run, and desk_report archives the four-section report through the repository validator with the run id, session id, and input versions supplied by the host; failed and refused tool calls recorded in the run audit become report decisions.
 
 <a id="deepseek-aidsh-redblue"></a>
 
@@ -844,7 +917,7 @@ Source: [`packages/extensions/tool-cordis/src/index.ts`](../packages/extensions/
 
 ### `cordis_inspect_query`
 
-Run a read-only query explicitly declared by an Inspect Provider. platform, provider, and method must come from cordis_inspect_list, and input must satisfy that method's schema. Use this Tool before cordis_define to read exact Service methods, Event modes, Builtin signatures, Tool schemas, theme tokens, or live Slot trees and props. Host queries run locally. A Client query waits for the first valid page response and remains pending until a page answers or the Tool is cancelled. This Tool cannot invoke business Service methods or modify the runtime. For Service.listService and Event.listEvents, query without input to navigate the compact signature directory, then query the exact service or event for its structured contract and referenced types. For Slots.listSubTree, query without root to navigate the compact tree, then query the exact root for its complete registration contract and props.
+Run a read-only query explicitly declared by an Inspect Provider. platform, provider, and method must come from cordis_inspect_list, and input must satisfy that method's schema. Use this Tool before cordis_define to read exact Service methods, Event modes, Builtin signatures, Tool schemas, theme tokens, or live Slot trees and props. Host queries run locally. A Client query waits for the first valid page response within the configured timeout; otherwise it reports a Client failure or asks you to reconnect and retry. This Tool cannot invoke business Service methods or modify the runtime. For Service.listService and Event.listEvents, query without input to navigate the compact signature directory, then query the exact service or event for its structured contract and referenced types. For Slots.listSubTree, query without root to navigate the compact tree, then query the exact root for its complete registration contract and props.
 
 ```json
 {

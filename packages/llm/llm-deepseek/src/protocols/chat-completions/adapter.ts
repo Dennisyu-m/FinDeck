@@ -235,11 +235,9 @@ export class ChatCompletionsAdapter extends LlmAdapter {
     } finally {
       consumer.abort('DeepSeek stream consumer stopped')
       if (!exhausted && iterator.return !== undefined) {
-        try {
-          await iterator.return()
-        } catch (_abortedTransportTeardown) {
-          // The consumer controller already owns termination; a return-time abort cannot add a second outcome.
-        }
+        // A demand the deadline abandoned can stay pending forever, and this
+        // generator queues its return behind it; the abort above owns termination.
+        void iterator.return().catch(() => {})
       }
     }
   }
@@ -320,7 +318,9 @@ export class ChatCompletionsAdapter extends LlmAdapter {
         signal,
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         ...options.purpose === undefined ? {} : { purpose: options.purpose },
-      }, this.config.prepareExtensions)
+      }, this.config.prepareExtensions, (error) => {
+        this.config.onExtensionsUnaccepted?.({ provider: options.provider, model: options.model, error })
+      })
 
       // TODO(http): adopt the Cordis HTTP service when shared transport configuration
       // outweighs its additional runtime dependencies.

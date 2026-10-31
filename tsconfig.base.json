@@ -305,6 +305,16 @@
       // The region rewrites whole, and it emits only bare and `/invariant`
       // aliases, so a subpath alias that must reach source lives here.
       "@deepseek-ai/dsh-subprocess/control": ["./packages/subprocess/subprocess/src/control.ts"],
+      // Hand-written aliases for packages whose npm name differs from their
+      // directory name, which the generator cannot infer.
+      "@deepseek-ai/dsh-client-ui-automation": ["./packages/client/ui-automation/src"],
+      "@deepseek-ai/dsh-client-ui-automation/client": ["./packages/client/ui-automation/src/client"],
+      "@deepseek-ai/dsh-client-ui-desk": ["./packages/client/ui-desk/src"],
+      "@deepseek-ai/dsh-client-ui-desk/client": ["./packages/client/ui-desk/src/client"],
+      "@deepseek-ai/dsh-client-ui-settings-automation": ["./packages/client/ui-settings-automation/src"],
+      "@deepseek-ai/dsh-client-ui-settings-automation/client": ["./packages/client/ui-settings-automation/src/client"],
+      "@deepseek-ai/dsh-desk-app": ["./packages/bundle/desk/src"],
+      "@deepseek-ai/dsh-thesis": ["./packages/skill/thesis-registry/src"],
       // BEGIN generated package aliases — pnpm run gen-tsconfig-paths
       "@deepseek-ai/dsh-acp": ["./packages/acp/acp/src"],
       "@deepseek-ai/dsh-acp-app": ["./packages/bundle/acp-app/src"],
@@ -323,6 +333,7 @@
       "@deepseek-ai/dsh-attachment-local": ["./packages/attachment/attachment-local/src"],
       "@deepseek-ai/dsh-authorization": ["./packages/credentials/authorization/src"],
       "@deepseek-ai/dsh-authorization/invariant": ["./packages/credentials/authorization/src/invariant.ts"],
+      "@deepseek-ai/dsh-automation-runner": ["./packages/skill/automation-runner/src"],
       "@deepseek-ai/dsh-base": ["./packages/bundle/base/src"],
       "@deepseek-ai/dsh-bash-local": ["./packages/shell/bash-local/src"],
       "@deepseek-ai/dsh-bash-sandbox": ["./packages/shell/bash-sandbox/src"],
@@ -343,6 +354,7 @@
       "@deepseek-ai/dsh-credentials-local": ["./packages/credentials/credentials-local/src"],
       "@deepseek-ai/dsh-deepseek-llm-api-extensions": ["./packages/llm/deepseek-llm-api-extensions/src"],
       "@deepseek-ai/dsh-deque": ["./packages/util/deque/src"],
+      "@deepseek-ai/dsh-desk": ["./packages/skill/desk/src"],
       "@deepseek-ai/dsh-file-reference": ["./packages/context/file-reference/src"],
       "@deepseek-ai/dsh-file-reference-local": ["./packages/context/file-reference-local/src"],
       "@deepseek-ai/dsh-fs": ["./packages/fs/fs/src"],
@@ -475,6 +487,7 @@
       "@deepseek-ai/dsh-tool-bash-persistent": ["./packages/shell/tool-bash-persistent/src"],
       "@deepseek-ai/dsh-tool-cluster": ["./packages/cluster/tool-cluster/src"],
       "@deepseek-ai/dsh-tool-cordis": ["./packages/extensions/tool-cordis/src"],
+      "@deepseek-ai/dsh-tool-desk": ["./packages/skill/tool-desk/src"],
       "@deepseek-ai/dsh-tool-fs": ["./packages/fs/tool-fs/src"],
       "@deepseek-ai/dsh-tool-fs-search": ["./packages/fs/tool-fs-search/src"],
       "@deepseek-ai/dsh-tool-goal": ["./packages/goal/tool-goal/src"],

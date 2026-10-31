@@ -54,6 +54,9 @@
       "path": "../../schedule/schedule"
     },
     {
+      "path": "../../skill/automation-runner"
+    },
+    {
       "path": "../../session/session-title"
     },
     {
@@ -64,6 +67,15 @@
     },
     {
       "path": "../../session/session-projection-cache"
+    },
+    {
+      "path": "../../skill/desk"
+    },
+    {
+      "path": "../../interaction/commands"
+    },
+    {
+      "path": "../../interaction/permission-presets"
     }
   ]
 }

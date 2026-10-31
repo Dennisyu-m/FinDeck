@@ -1,0 +1,20 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../../vendor/schemastery" },
+    { "path": "../../../vendor/timer" },
+    { "path": "../../core/tools" },
+    { "path": "../../subprocess/subprocess" },
+    { "path": "../../util/atomic-write" },
+    { "path": "../../util/home-paths" },
+    { "path": "../../webhook/webhook" },
+    { "path": "../automation-runner" },
+    { "path": "../thesis-registry" }
+  ]
+}

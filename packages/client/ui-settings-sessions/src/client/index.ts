@@ -60,6 +60,9 @@ export function apply(ctx: ClientContext): void {
     id: 'sessions',
     order: 27,
     label: () => t('nav'),
+    icon: 'chat',
+    place: 'settings',
+    settingsOrder: 5,
     inject: (): SessionsSectionInjected => ({
       controller,
       hooks: { snapshot: controller.store },

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-assets` is the asset hub: one `settings.section` row (`research-assets`, first in the sidebar's direct nav) that shows the asset library the way a user reads it, beside the files the AI reads. Four tabs — the asset **grid/list** over the v2 `assetLibrary()` snapshot, the **reports** with the thesis strip, the **mode flows** with per-step models, and the **lineage graph** — plus one **face detail view** that renders an asset version's `face.json` block by block and runs its verbs through the `runVerb` bridge. The host owns every read, every verb run, and the session the "hand to AI" entry opens; this package renders what the Remote answered.
+`dsh-client-ui-assets` is the asset hub: one `settings.section` row (`research-assets`, first in the sidebar's direct nav) that shows the asset library the way a user reads it, beside the files the AI reads. Five tabs — the asset **grid/list** over the v2 `assetLibrary()` snapshot, the **reports** with the thesis strip, the **mode flows** with per-step models, the **Work modes** created from selected assets, and the **lineage graph** — plus one **face detail view** that renders an asset version's `face.json` block by block and runs its verbs through the `runVerb` bridge. The host owns every read, every verb run, the workbench definition write, and the session an entry opens; this package renders what the Remote answered.
 
 ## Table of Contents
 
@@ -40,6 +40,7 @@ No configuration. The section id is `research-assets`, and it renders as a full 
 - **Lineage** — the asset snapshot projected into a directed, layered SVG: columns are dependency depth, arrows point from an upstream asset at its consumer, and a click opens that asset's face.
 - **Reports** — every report the registry knows (title, workspace, modified time) followed by the thesis strip: each conclusion with its status, check count, and the registry hit/miss score.
 - **Mode flows** — presets grouped into work flows (declared steps, each with its model route) and free/lightweight ones; the form below copies an existing work preset under a new id and name and replaces its flow.
+- **Work modes** — the shipped and user `workbench.yaml` definitions with their asset sets; **Open session** creates a session on the host-generated workbench brief. **Select assets** enters multi-select on the assets tab; the selection bar writes one user Work mode definition (validated by the repository's Python validator, never overwriting an existing one) and opens its brief in a new session.
 
 ### Observable success and failures
 
@@ -60,8 +61,8 @@ Data blocks do not fetch on their own: `FaceRenderer` collects the face's distin
 
 ### Source map
 
-- `src/client/index.ts` — dictionary registration, the `research-assets` section row, and the Remote adapters (`assetLibrary`, `overview`, `assetFace`, `runVerb`, `assetFile`, `assetBrief` + sessions, `savePreset`).
-- `src/client/AssetsPage.tsx` — the page: tabs, snapshot load state, filter/sort/selection state.
+- `src/client/index.ts` — dictionary registration, the `research-assets` section row, the retained `assets/open` / `assets/open-thesis` requests, and the Remote adapters (`assetLibrary`, `overview`, `assetFace`, `runVerb`, `assetFile`, `assetBrief` + sessions, `savePreset`, `workbenches`, `createWork`, `workbenchBrief`).
+- `src/client/AssetsPage.tsx` — the page: tabs, snapshot load state, filter/sort/selection/multi-select state, the external-open route, and the Work create/launch surfaces.
 - `src/client/assets/library.ts` — pure projections: filtering, ordering, lineage edges (`depends_on` ∪ `lineage.inputs`, self-loops dropped), and the layered layout.
 - `src/client/assets/labels.ts` — the manifest `kind`/`origin` vocabulary mapped onto dictionary keys.
 - `src/client/assets/AssetsView.tsx` — the toolbar, the card wall, and the compact table.
@@ -94,6 +95,8 @@ None on its own. The prompt the hand-off sends is a new session's first request,
 - **The embedded document runs with scripts** — `embed` renders the asset's own html in an `iframe sandbox="allow-scripts"`: the document gets an opaque origin and can reach neither this page nor the library, but interactive exports (notebook dumps, self-contained reports) are expected to need scripts. Tightening this to a script-free sandbox is a one-attribute change.
 - **Report bodies are not rendered** — the reports tab lists metadata and scores; reading a report itself stays with the session that wrote it or the file on disk.
 - **The flow form only copies** — a new flow starts from an existing work preset; there is no authoring surface for a brand-new composition.
+- **Work creation needs the finance venv** — the host validates a new `workbench.yaml` with `python -m findeck.workbench validate`; without the venv the create entry reports the validator failure instead of writing an unvalidated definition.
+- **Work definitions are user-owned** — the create entry writes `<harness home>/workbenches/<name>.yaml` and refuses an existing name; editing or deleting a definition stays on disk.
 
 <a id="dev-note"></a>
 ### Dev Note

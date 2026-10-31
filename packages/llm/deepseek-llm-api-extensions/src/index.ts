@@ -100,23 +100,32 @@ export class DeepSeekLlmApiExtensionRegistry extends Service {
 
   /**
    * Prepare every currently registered field from one immutable base request.
-   * Preparation failures reject before HTTP dispatch. Field values are cloned and frozen;
-   * providers retain no mutable alias to the outgoing request.
+   * A provider whose preparation throws, or whose value cannot be cloned, is logged
+   * and omitted from this request; only cancellation rejects. Field values are cloned
+   * and frozen; providers retain no mutable alias to the outgoing request.
    * @param request - exact serialized request facts before extension fields.
    * @returns detached fields and their idempotent joint acceptance transaction.
    */
   async prepare(request: DeepSeekLlmApiExtensionRequest): Promise<PreparedDeepSeekLlmApiExtensions> {
     request.signal.throwIfAborted()
     const entries = [...this.providers.entries()]
-    const prepared = await abortable(Promise.all(entries.map(async ([field, provider]) => ({
-      field,
-      result: await provider.prepare(request),
-    }))), request.signal)
+    const prepared = await abortable(Promise.all(entries.map(async ([field, provider]) => {
+      try {
+        const result = await provider.prepare(request)
+        return result === undefined ? undefined : { field, value: freezeJson(structuredClone(result.value)), result }
+      } catch (error) {
+        if (!request.signal.aborted) {
+          this.ctx.logger.warn(`deepseek-llm-api-extensions: omitting field ${JSON.stringify(field)} from this request because its preparation failed: %o`, error)
+        }
+        return undefined
+      }
+    })), request.signal)
     const fields: Record<string, DeepSeekLlmApiJson> = Object.create(null) as Record<string, DeepSeekLlmApiJson>
     const callbacks: Array<() => void | Promise<void>> = []
-    for (const { field, result } of prepared) {
-      if (result === undefined) continue
-      fields[field] = freezeJson(structuredClone(result.value))
+    for (const item of prepared) {
+      if (item === undefined) continue
+      const { field, value, result } = item
+      fields[field] = value
       const accept = result.accept
       if (accept !== undefined) callbacks.push(accept.bind(result))
     }

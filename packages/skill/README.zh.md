@@ -30,6 +30,7 @@ skill 组让 agent（智能体）和用户按需使用可复用的任务专项�
 | [`skill-office/`](skill-office/README.zh.md) | 随包附带 Word、PowerPoint 与 Excel 工作流及文件结构检查 | 注册到 `ctx.skills` |
 | [`tool-skill/`](tool-skill/README.zh.md) | 发布会话 skill 目录与面向模型的 `skill` 加载工具 | 注册到 `ctx.tools` |
 | [`tool-asset-library/`](tool-asset-library/README.zh.md) | 面向模型的 FinDeck 资产库工具：发现、查看、在金融 venv 内执行已归档的研究资产 | 注册到 `ctx.tools` |
+| [`automation-runner/`](automation-runner/README.zh.md) | 自动化任务的宿主调度器。按 cron 或固定间隔 spawn 金融 venv 来跑 `pipeline` 任务 | `ctx.automationRunner` |
 | [`roundtable/`](roundtable/README.zh.md) | 圆桌宿主能力：settings 支撑的发言者名册，以及逐个发言者驱动同一份共享转录的房间引擎 | `ctx.remote.roundtable` |
 | [`tool-roundtable/`](tool-roundtable/README.zh.md) | 面向模型的 `roundtable_list` 与 `roundtable_read`，读取持久化的圆桌转录归档 | 注册到 `ctx.tools` |
 | [`redblue/`](redblue/README.zh.md) | 红蓝对抗评审：`rbcheck` 命名空间下可编辑的红蓝提示词、`/rb-check` 命令与 `rb_check` 工具 | 注册到 `ctx.tools` |

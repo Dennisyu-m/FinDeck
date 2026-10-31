@@ -19,11 +19,14 @@ import type { ComposerChainProps } from '@deepseek-ai/dsh-client-ui-conversation
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type { PendingInteractionPublisher } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { TypertClientEventListener } from '@deepseek-ai/dsh-typert-protocol'
+import type { ToolCallId } from '@deepseek-ai/dsh-llm/brand'
+import type { AskUserQuestionAnswer } from '@deepseek-ai/dsh-user-questions/types'
 // Type-only: pulls the locale plugin's Context merge (ctx.locale).
 import type {} from '@deepseek-ai/dsh-client-locale/client'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import { PendingQuestion } from './contract/slots.ts'
 import { createQuestionDraftStore } from './draft-store.ts'
+import { PendingQuestionDock, type PendingQuestionDockInjected } from './PendingQuestionDock.tsx'
 import { QuestionComposer } from './QuestionComposer.tsx'
 import { en, zh, type QuestionKey } from './locales.ts'
 
@@ -48,7 +51,7 @@ type ClientQuestionNext = Parameters<QuestionListener>[1]
 type ClientQuestionAnswer = Awaited<ReturnType<QuestionListener>>
 
 /** Required services: Agent scopes, Remote Events, Session UI, Slot registry, and copy. */
-export const inject = ['sessions', 'remote', 'uiSession', 'slots', 'locale']
+export const inject = ['sessions', 'remote', 'remote.userQuestions', 'uiSession', 'slots', 'locale']
 
 /** Present one request until the user answers, cancels, or its lifetime ends. */
 async function answerQuestion(
@@ -100,6 +103,27 @@ export function apply(ctx: ClientContext): void {
       store: questionDraftStore,
     },
     QuestionComposer,
+  ))
+  // Timed questions outlive their foreground window: the dock answers them
+  // through the Remote `answer` method, which steers the reply into the agent.
+  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register(
+    {
+      name: 'conversation.composer.dock',
+      id: 'pending-questions',
+      order: 10,
+      locale: NS,
+      inject: (sessionId): PendingQuestionDockInjected => ({
+        // Failure strings stay English (error-surface policy: not localized).
+        reply: async (callId: ToolCallId, answer: AskUserQuestionAnswer) => {
+          const result = await ctx.remote.userQuestions.answer(sessionId, callId, answer)
+          if (result.ok) return
+          const failure = new Error(result.error.message) as Error & { code?: string }
+          failure.code = result.error.code
+          throw failure
+        },
+      }),
+    },
+    PendingQuestionDock,
   ))
   ctx.remote.$on('user-questions/request', function (request, next) {
     return answerQuestion(ctx, this, request, next, registerPendingInteraction)

@@ -42,11 +42,15 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'settings.close': { kind: 'single'; scope: 'root'; owner: SettingsHeaderOwnerProps }
     /**
      * One settings page per list entry. Registrant options carry the nav
-     * identity: `id` (section key, drives `only` filtering), `order` (nav
+     * identity: `id` (section key, drives `only` filtering), `order` (ledger
      * position), `label` (registrant-localized display text — the registrant
      * re-registers with fresh text on locale change, so the shell never
      * subscribes locale state; the ledger bump doubles as the shell's
-     * re-render trigger). Sections render inside the panel content column.
+     * re-render trigger), `icon` (shell glyph name, a string), `place`
+     * (`nav`, `settings`, or `both`), `navOrder`, and `settingsOrder`.
+     * The shell lists a section only when `place` names that list; a section
+     * without `place` is a page the shell reaches through its own chrome.
+     * Sections render inside the panel content column.
      * (`settings.general.item`, declared by ui-settings-general's General
      * entry, is typed in the locale package — the common dependency of every
      * item registrant; the shell neither declares nor renders it.)

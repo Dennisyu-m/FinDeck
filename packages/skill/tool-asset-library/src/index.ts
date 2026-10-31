@@ -25,7 +25,7 @@
 
 import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readdir, readFile } from 'node:fs/promises'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
@@ -36,6 +36,7 @@ import type { UserMessage } from '@deepseek-ai/dsh-session'
 import { dshHomePath } from '@deepseek-ai/dsh-home-paths'
 import { catalogDescription, escapeText, publishSessionCatalog, type SessionCatalog } from '@deepseek-ai/dsh-skill'
 import type {} from '@deepseek-ai/dsh-subprocess'
+import type { SandboxPolicy, SandboxProvider } from '@deepseek-ai/dsh-sandbox'
 import type {
   AssetFreshness,
   AssetKind,
@@ -152,6 +153,20 @@ export interface Config {
   readonly pythonPath?: string
   /** Whether `asset_run` must pass the approval seam (user-visible, rejectable); default `true`. */
   readonly requireApproval?: boolean
+  /**
+   * Whether this composition registers `asset_run_bg`. Default `true`; the
+   * unattended desk composition sets `false` because its permission preset
+   * allows a foreground library run and not a detached submission.
+   */
+  readonly background?: boolean
+  /**
+   * Whether `asset_run` and `asset_run_bg` must execute inside the composed
+   * sandbox with the asset library as their only writable root. Default
+   * `false`, which leaves the ordinary interactive research semantics alone;
+   * the unattended desk composition sets `true` so an asset function cannot
+   * write outside the library.
+   */
+  readonly sandbox?: boolean
   /** Per-stream collected output cap for one `asset_run` call, in bytes. */
   readonly maxOutputBytes?: number
   /** Termination grace for `asset_run` child processes, in milliseconds. */
@@ -163,6 +178,8 @@ export const Config: z<Config> = z.object({
   assetDir: z.string(),
   pythonPath: z.string().default(DEFAULT_PYTHON_PATH),
   requireApproval: z.boolean().default(true),
+  background: z.boolean().default(true),
+  sandbox: z.boolean().default(false),
   maxOutputBytes: z.number().default(256 * 1024),
   graceMs: z.number().default(15_000),
 })
@@ -586,6 +603,70 @@ async function recordUsage(
 }
 
 /**
+ * Append one asset version the model actually read to the current desk run's
+ * source ledger. The desk runner sets `FINDECK_DESK_SOURCES_FILE`; ordinary
+ * sessions have no ledger and this is a no-op. A failure to record is thrown,
+ * because a report that silently omits a source it used is worse than a tool
+ * error.
+ * @param tool - the tool that read the version.
+ * @param asset - asset name.
+ * @param version - the exact resolved version.
+ * @param extra - tool-specific facts such as the entry name.
+ */
+async function recordDeskSource(
+  tool: 'asset_show' | 'asset_run',
+  asset: string,
+  version: number,
+  extra: Record<string, string> = {},
+): Promise<void> {
+  const file = process.env.FINDECK_DESK_SOURCES_FILE
+  if (file === undefined || file === '') return
+  const line = JSON.stringify({ ts: new Date().toISOString(), tool, asset, version, ...extra })
+  await mkdir(dirname(file), { recursive: true, mode: 0o700 })
+  await appendFile(file, `${line}\n`, 'utf-8')
+}
+
+/**
+ * Wrap an asset child argv for the unattended desk policy, or return it
+ * unchanged for an ordinary interactive composition.
+ *
+ * The desk policy is explicit: `workspace-write` rooted at the asset library,
+ * not the session workspace, so an asset function may update the library but
+ * cannot write the repository, the desk task directory, or the user's home.
+ * The provider governs file effects only; it is not an executable allowlist.
+ * Missing sandbox availability fails closed instead of running the child
+ * unconfined.
+ * @param ctx - plugin context.
+ * @param enabled - the tool's `sandbox` configuration.
+ * @param argv - the exact child argv.
+ * @param assetDir - the only writable root.
+ * @param signal - caller cancellation.
+ * @param sessionId - owning session, when there is one.
+ * @returns the argv to spawn.
+ */
+async function confineAssetArgv(
+  ctx: Context,
+  enabled: boolean,
+  argv: readonly string[],
+  assetDir: string,
+  signal: AbortSignal | undefined,
+  sessionId: Agent['session']['id'] | undefined,
+): Promise<readonly string[]> {
+  if (!enabled) return argv
+  const sandbox = ctx.get('sandbox') as SandboxProvider | undefined
+  if (sandbox === undefined) {
+    throw new Error('asset execution requires the sandbox service, but this composition has none; refusing to run unconfined')
+  }
+  const policy: SandboxPolicy = {
+    mode: 'workspace-write',
+    workspaceRoot: assetDir,
+    ...sessionId === undefined ? {} : { sessionId },
+  }
+  const confined = await sandbox.confine(argv, policy, signal)
+  return confined.argv
+}
+
+/**
  * Register the seven asset tools and the durable session catalog. The catalog
  * publishes only when the calling agent resolves this plugin's exact
  * `asset_list` registration, so a preset that omits the tools also omits the
@@ -593,6 +674,7 @@ async function recordUsage(
  */
 export function apply(ctx: Context, config: Config = {}): void {
   const assetDir = resolve(config.assetDir ?? defaultAssetDir())
+  // Python's own default can disagree with this root; every spawn passes it explicitly.
   const pythonPath = config.pythonPath !== undefined && isAbsolute(config.pythonPath)
     ? config.pythonPath
     : config.pythonPath ?? DEFAULT_PYTHON_PATH
@@ -846,10 +928,11 @@ export function apply(ctx: Context, config: Config = {}): void {
       if (index === undefined) {
         throw new Error(`asset library ${assetDir} has no readable index.json — archive an asset first (findeck.assets.archive)`)
       }
-      const { dir, manifest } = resolveVersion(index, args.name, args.version, assetDir)
+      const { dir, version, manifest } = resolveVersion(index, args.name, args.version, assetDir)
       const files = await listFiles(dir)
       const preview = await codePreview(dir)
       await recordUsage(assetDir, 'asset_show', args.name, exec.agent)
+      await recordDeskSource('asset_show', args.name, version)
       return { dir, manifest: jsonManifestOf(manifest), files, code_preview: preview }
     },
     presentCall: args => ({ card: 'generic', title: `Show asset ${args.name}`, kind: 'read', rawInput: args.name }),
@@ -994,8 +1077,16 @@ export function apply(ctx: Context, config: Config = {}): void {
         throw new Error(`finance Python environment not found at ${pythonPath} — run finance/python/setup-env.(ps1|sh) first`)
       }
 
+      const argv = await confineAssetArgv(
+        ctx,
+        config.sandbox ?? false,
+        [pythonPath, '-c', DRIVER, dir, args.entry, args.args_json],
+        assetDir,
+        exec.signal,
+        exec.agent?.session.id,
+      )
       const handle = ctx.subprocess.spawn({
-        argv: [pythonPath, '-c', DRIVER, dir, args.entry, args.args_json],
+        argv,
         cwd: dir,
         stdio: {
           stdin: 'ignore',
@@ -1004,6 +1095,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         },
         graceMs: config.graceMs ?? 15_000,
         signal: exec.signal,
+        env: { FINDECK_ASSET_DIR: assetDir },
       })
       const outcome = await handle.done
       const stdout = handle.collected.stdout?.readFrom(0).text ?? ''
@@ -1022,6 +1114,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         throw new Error(`driver produced no result marker; stderr: ${stderr.trim() || '(empty)'}`)
       }
       await recordUsage(assetDir, 'asset_run', args.name, exec.agent)
+      await recordDeskSource('asset_run', args.name, version, { entry: args.entry })
       return { stdout, result_json: result }
     },
     presentCall: args => ({
@@ -1032,7 +1125,7 @@ export function apply(ctx: Context, config: Config = {}): void {
     }),
   }))
 
-  ctx.tools.register(defineTool({
+  if (config.background ?? true) ctx.tools.register(defineTool({
     name: 'asset_run_bg',
     description: 'Submit an asset verb as a background run and return as soon as it is accepted: the verb executes detached in the finance Python environment and writes its result to a run record, so the calling turn continues instead of waiting. Use it for long work (data pulls, training, backtests); it always runs the asset\'s latest version and takes no approval.',
     parameters: {
@@ -1071,11 +1164,19 @@ export function apply(ctx: Context, config: Config = {}): void {
         throw new Error(`finance Python environment not found at ${pythonPath} — run finance/python/setup-env.(ps1|sh) first`)
       }
 
-      const handle = ctx.subprocess.spawn({
-        argv: [
+      const argv = await confineAssetArgv(
+        ctx,
+        config.sandbox ?? false,
+        [
           pythonPath, '-m', 'findeck.verb_bridge', '--background',
           JSON.stringify({ asset: args.asset, verb: args.verb, params: args.params ?? {} }),
         ],
+        assetDir,
+        exec.signal,
+        exec.agent?.session.id,
+      )
+      const handle = ctx.subprocess.spawn({
+        argv,
         cwd: dir,
         stdio: {
           stdin: 'ignore',
@@ -1084,6 +1185,7 @@ export function apply(ctx: Context, config: Config = {}): void {
         },
         graceMs: config.graceMs ?? 15_000,
         signal: exec.signal,
+        env: { FINDECK_ASSET_DIR: assetDir },
       })
       const outcome = await handle.done
       const stdout = handle.collected.stdout?.readFrom(0).text ?? ''

@@ -104,7 +104,7 @@ The library is built on one boundary: share the timing and classification, keep 
 
 ### Why an idle watchdog rearms
 
-`idleWatchdog` keeps one stable fused signal and arms the timer only while `next()` is outstanding; resolution disarms, later demand or `pulse()` rearms, disposal clears, and concurrent demand rejects. Only the transport observes the signal, so the provider's real read must listen to it — the DeepSeek and pi-ai adapters close their response body or SDK request on abort.
+`idleWatchdog` keeps one stable fused signal and arms the timer only while `next()` is outstanding; resolution disarms, later demand or `pulse()` rearms, disposal clears, and concurrent demand rejects. When the idle interval elapses first, `next()` rejects with this watchdog's `TimeoutReason` even if the transport leaves the read pending. Upstream cancellation still reaches the iterator only through the signal and does not shorten that wait. The caller aborts the transport, and must not await an abandoned generator's `return()`.
 
 </details>
 

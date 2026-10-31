@@ -20,6 +20,9 @@
     },
     {
       "path": "../../subprocess/subprocess"
+    },
+    {
+      "path": "../../skill/skill"
     }
   ]
 }

@@ -126,8 +126,15 @@
     # only. Deployments enabling content search override `openAt` to
     # `first-search` or `startup` in a later patch layer (profile
     # cordis.patch.yml or a --patch overlay), typically with a durable `path`.
+    # `path` is a required config field, so it is stated here even though
+    # `openAt: never` never opens it. It stays `:memory:` rather than a path
+    # under the home: the backend forbids two processes sharing one derived
+    # index, so a durable default shared by every profile would be unusable.
     - id: session-query-sqlite
       name: '@deepseek-ai/dsh-session-query-sqlite'
+      config:
+        path: ':memory:'
+        openAt: never
 
     # Durable per-session reminders and scheduled runs (schedule_create
     # / schedule_list / schedule_delete / schedule_pause / schedule_resume),
@@ -287,6 +294,18 @@
     # execution of archived research assets, plus the session asset catalog.
     - id: tool-asset-library
       name: '@deepseek-ai/dsh-tool-asset-library'
+
+    # FinDeck automation runner: cron and interval pipeline tasks inside the
+    # host process. One-shot profiles disable this row so its timer cannot
+    # keep a headless, sdk, or acp process alive.
+    - id: automation-runner
+      name: '@deepseek-ai/dsh-automation-runner'
+
+    # Durable thesis registry: one YAML manifest per testable conclusion,
+    # with derived status, overdue flags, and the hit/miss score the tools,
+    # the research-asset page, and the value desk share.
+    - id: thesis-registry
+      name: '@deepseek-ai/dsh-thesis'
 
     # FinDeck thesis registry tools: track testable conclusions from
     # reports, list the due ones, and record recheck outcomes.

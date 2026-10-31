@@ -35,6 +35,7 @@ export {
   initProfile,
   loadProfile,
   loadProfileDirectory,
+  migrateLegacyAutomationSwitch,
   PROFILE_PATCH_FILENAME,
   PROFILE_TEMPLATES,
   PROFILES_DIR,

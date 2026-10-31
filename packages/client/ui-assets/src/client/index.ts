@@ -12,10 +12,63 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 // Type-only: pulls the `ctx.sessions` merge the hand-off entry drives.
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 import type {
-  AssetFaceResult, AssetLibrary, AssetOverview,
+  AssetFaceResult, AssetLibrary, AssetOverview, CreateWorkRequest, CreateWorkResult, WorkbenchListValue,
 } from '@deepseek-ai/dsh-api-remotes/client'
-import { AssetsPage, type AssetsPageProps } from './AssetsPage.tsx'
+import { AssetsPage, type AssetsPageProps, type ExternalOpen } from './AssetsPage.tsx'
 import { en, zh, type AssetsLocaleKey } from './locales.ts'
+
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /**
+     * Open one asset's face from another page after routing to the
+     * `research-assets` section. The request is retained, so it is not lost if
+     * this page was not mounted when the sender emitted it.
+     * @param payload - asset name and optional exact version.
+     * @mode emit
+     */
+    'assets/open'(payload: { asset: string; version?: number }): void
+    /**
+     * Open the research-assets page's thesis view from another page. The id is
+     * carried for diagnostics; the page highlights the reports tab.
+     * @param payload - thesis id.
+     * @mode emit
+     */
+    'assets/open-thesis'(payload: { id: string }): void
+  }
+}
+
+/** One external-open request source; only the latest request is retained. */
+function externalOpenSource(): {
+  publishAsset(asset: string, version?: number): void
+  publishThesis(id: string): void
+  hook: import('@deepseek-ai/dsh-client-ui-slots').HostObservable<ExternalOpen>
+} {
+  let snapshot: ExternalOpen = { revision: 0 }
+  const listeners = new Set<() => void>()
+  const emit = (next: ExternalOpen): void => {
+    snapshot = next
+    for (const listener of listeners) listener()
+  }
+  return {
+    publishAsset(asset, version) {
+      emit({
+        revision: snapshot.revision + 1,
+        ...version === undefined ? {} : { version },
+        asset,
+      })
+    },
+    publishThesis(id) {
+      emit({ revision: snapshot.revision + 1, thesis: id })
+    },
+    hook: {
+      getSnapshot: () => snapshot,
+      subscribe: (listener) => {
+        listeners.add(listener)
+        return () => { listeners.delete(listener) }
+      },
+    },
+  }
+}
 
 export type { AssetsLocaleKey } from './locales.ts'
 export type { AssetsPageProps } from './AssetsPage.tsx'
@@ -90,20 +143,16 @@ export function apply(ctx: ClientContext): void {
    * the session is also what leaves this page — the shell returns to the
    * conversation for a changed current session.
    */
-  const askAi = async (asset: string): Promise<void> => {
-    const brief = await ctx.remote.assetOverview.assetBrief({ asset })
-    if (!brief.ok) {
-      throw new Error(`${brief.error.message} (${brief.error.code})`)
-    }
+  const openSeed = async (seed: string): Promise<void> => {
     const sessionId = await ctx.sessions.create({})
     ctx.sessions.open(sessionId)
     const session = ctx.sessions.binding(sessionId)?.session
     if (session === undefined) {
       throw new Error('the new session is not addressable yet')
     }
-    const submission = session.beginSubmission({ mode: 'queue', text: brief.value.seed, attachments: [] })
+    const submission = session.beginSubmission({ mode: 'queue', text: seed, attachments: [] })
     const result = await session.prompt(
-      [{ type: 'text', text: brief.value.seed }],
+      [{ type: 'text', text: seed }],
       'queue',
       undefined,
       submission.requestId,
@@ -113,6 +162,13 @@ export function apply(ctx: ClientContext): void {
       throw new Error(`${result.error.message} (${result.error.code})`)
     }
   }
+  const askAi = async (asset: string): Promise<void> => {
+    const brief = await ctx.remote.assetOverview.assetBrief({ asset })
+    if (!brief.ok) {
+      throw new Error(`${brief.error.message} (${brief.error.code})`)
+    }
+    await openSeed(brief.value.seed)
+  }
 
   const saveFlow: AssetsPageProps['saveFlow'] = async (request) => {
     const result = await ctx.remote.agentPresets.savePreset(request)
@@ -120,12 +176,58 @@ export function apply(ctx: ClientContext): void {
     return `${result.error.message} (${result.error.code})`
   }
 
-  ctx.slots.inject('settings.section', () => ctx.slots.register({
+  const loadWorkbenches = async (): Promise<WorkbenchListValue> => {
+    const result = await ctx.remote.assetOverview.workbenches()
+    if (!result.ok) throw new Error(`${result.error.message} (${result.error.code})`)
+    return result.value
+  }
+  const createWork = async (request: CreateWorkRequest): Promise<CreateWorkResult> => {
+    const result = await ctx.remote.assetOverview.createWork(request)
+    if (!result.ok) throw new Error(`${result.error.message} (${result.error.code})`)
+    return result.value
+  }
+  const loadWorkbenchBrief = async (name: string): Promise<string> => {
+    const result = await ctx.remote.assetOverview.workbenchBrief({ name })
+    if (!result.ok) throw new Error(`${result.error.message} (${result.error.code})`)
+    return result.value.seed
+  }
+
+  const externalOpen = externalOpenSource()
+  ctx.effect(() => {
+    const disposeAsset = ctx.on('assets/open', payload => {
+      externalOpen.publishAsset(payload.asset, payload.version)
+    })
+    const disposeThesis = ctx.on('assets/open-thesis', payload => {
+      externalOpen.publishThesis(payload.id)
+    })
+    return () => {
+      disposeAsset()
+      disposeThesis()
+    }
+  }, 'ui-assets: external open requests')
+
+  ctx.effect(() => ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
     id: 'research-assets',
     order: 1,
     label: () => t('nav'),
+    icon: 'layers',
+    place: 'nav',
+    navOrder: 3,
     locale: NS,
-    inject: () => ({ loadLibrary, loadOverview, loadFace, runVerb, loadFile, askAi, saveFlow }),
-  }, AssetsPage))
+    inject: () => ({
+      loadLibrary,
+      loadOverview,
+      loadFace,
+      runVerb,
+      loadFile,
+      askAi,
+      saveFlow,
+      loadWorkbenches,
+      createWork,
+      loadWorkbenchBrief,
+      openSeed,
+      hooks: { externalOpen: externalOpen.hook },
+    }),
+  }, AssetsPage)), 'ui-assets: research-assets section')
 }

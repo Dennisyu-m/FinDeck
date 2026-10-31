@@ -11,9 +11,24 @@
 import type { ReactNode } from 'react'
 
 /** Glyph names — exactly the symbols in {@link ICON_DEFS}. */
-export type IconName = 'plus' | 'grid' | 'clock' | 'layers' | 'sliders' | 'chip' | 'db' | 'help' | 'back' | 'restart'
+export type IconName = 'plus' | 'grid' | 'clock' | 'calendar' | 'layers' | 'sliders' | 'chip' | 'db' | 'help' | 'back' | 'restart'
   | 'folder' | 'sparkle' | 'plug' | 'chat' | 'note' | 'puzzle' | 'gear' | 'mask'
   | 'panelCollapse' | 'panelExpand'
+
+const ICON_NAMES = new Set<string>([
+  'plus', 'grid', 'clock', 'calendar', 'layers', 'sliders', 'chip', 'db', 'help', 'back', 'restart',
+  'folder', 'sparkle', 'plug', 'chat', 'note', 'puzzle', 'gear', 'mask',
+  'panelCollapse', 'panelExpand',
+])
+
+/**
+ * Whether `name` is a glyph this module draws.
+ * @param name - a registration's icon string.
+ * @returns true when {@link ShellIcon} can draw it.
+ */
+export function isIconName(name: string): name is IconName {
+  return ICON_NAMES.has(name)
+}
 
 /** One <g> symbol per glyph. */
 const ICON_DEFS: Readonly<Record<IconName, ReactNode>> = {
@@ -31,6 +46,12 @@ const ICON_DEFS: Readonly<Record<IconName, ReactNode>> = {
   clock: (<>
     <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" strokeWidth="1.6" />
     <polyline points="12,7.5 12,12 15.5,14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </>),
+  calendar: (<>
+    <rect x="4" y="5.5" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    <line x1="4" y1="9.5" x2="20" y2="9.5" stroke="currentColor" strokeWidth="1.6" />
+    <line x1="8" y1="3.5" x2="8" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    <line x1="16" y1="3.5" x2="16" y2="7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
   </>),
   layers: (<>
     <path d="M12 3 L21 8 L12 13 L3 8 Z" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />

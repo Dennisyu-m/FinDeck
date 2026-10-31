@@ -29,7 +29,9 @@ import { ThemePresenter } from './theme-presenter.ts'
 import { shellFrameInjected } from './contract/inject.ts'
 import { RestartController } from './restart.ts'
 import { UserProfileController, USER_PROFILE_NAMESPACE } from './user-profile.ts'
+import { chromeRows, type ChromeLists } from './chrome.ts'
 import { en, zh, type ShellKey } from './locales.ts'
+import type { HostObservable } from '@deepseek-ai/dsh-client-ui-slots'
 
 // Contract exports only (export-convergence rule): the shell store factory
 // stays package-internal; consumers type against the store's return type via
@@ -79,10 +81,39 @@ export const inject = ['slots', 'theme', 'locale', 'uiWorkspace', 'remote', 'rem
  * and the inject hook that hands the store's bound actions to the service.
  * @param ctx - client root context.
  */
+/** Live nav and settings-rail rows. The snapshot object changes only when the ledger or locale does. */
+function sectionLists(ctx: ClientContext): HostObservable<ChromeLists> {
+  let version = -1
+  let revision = -1
+  let snapshot: ChromeLists = { nav: [], settings: [] }
+  return {
+    getSnapshot: () => {
+      const nextVersion = ctx.slots.getVersion('settings.section')
+      const nextRevision = ctx.locale.getSnapshot().revision
+      if (nextVersion !== version || nextRevision !== revision) {
+        version = nextVersion
+        revision = nextRevision
+        const entries = ctx.slots.entries('settings.section')
+        snapshot = { nav: chromeRows(entries, 'nav'), settings: chromeRows(entries, 'settings') }
+      }
+      return snapshot
+    },
+    subscribe: (listener) => {
+      const offLedger = ctx.slots.subscribe('settings.section', listener)
+      const offLocale = ctx.locale.subscribe(listener)
+      return () => {
+        offLedger()
+        offLocale()
+      }
+    },
+  }
+}
+
 export function apply(ctx: ClientContext): void {
   const layout = new ShellLayoutController()
   const userProfile = new UserProfileController(ctx)
   const restart = new RestartController(ctx)
+  const sections = sectionLists(ctx)
   ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'ui-shell: dictionaries')
   // The user card's name: load once at boot and refresh when the namespace
   // moves elsewhere (another window renamed it, or an editor wrote it).
@@ -128,7 +159,7 @@ export function apply(ctx: ClientContext): void {
       // page business belongs to the sections the page hole renders.
       inject: (actions: ShellActions) => {
         layout.attachActions(actions)
-        return shellFrameInjected(ctx, userProfile, restart)
+        return shellFrameInjected(ctx, userProfile, restart, sections)
       },
     }, ShellFrame)
     return () => {

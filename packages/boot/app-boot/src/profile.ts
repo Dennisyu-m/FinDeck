@@ -25,8 +25,8 @@
 
 import { createRequire } from 'node:module'
 import {
-  existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync, statSync,
-  symlinkSync, unlinkSync, writeFileSync,
+  existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmdirSync, rmSync,
+  statSync, symlinkSync, unlinkSync, writeFileSync,
 } from 'node:fs'
 import { basename, dirname, join, relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -148,6 +148,13 @@ export const PROFILE_TEMPLATES: Record<string, ProfileTemplate> = {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless'],
     patchReload: 'startup',
   },
+  // The unattended desk composition: the same one-shot runner with the desk
+  // permission layer applied last. It is not a public application entry; the
+  // host automation runner spawns it for one desk run.
+  desk: {
+    bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-headless', '@deepseek-ai/dsh-desk-app'],
+    patchReload: 'startup',
+  },
   sdk: {
     bundles: ['@deepseek-ai/dsh-base', '@deepseek-ai/dsh-sdk-app'],
     patchReload: 'startup',
@@ -226,7 +233,11 @@ function readModuleProxyRecord(link: string): ModuleProxyRecord | undefined {
   }
 }
 
-/** Ensure `link` is a symlink to `target`, replacing a wrong link or a dsh-managed packaged proxy. */
+/**
+ * Ensure `link` is a symlink to `target`, replacing a wrong link, a link this
+ * Node cannot read back, or a dsh-managed packaged proxy. Any other existing
+ * entry fails loud rather than being deleted.
+ */
 function ensureSymlink(link: string, target: string): void {
   let stat
   try {
@@ -240,9 +251,19 @@ function ensureSymlink(link: string, target: string): void {
     if (!stat.isSymbolicLink()) {
       const existing = stat.isDirectory() ? readModuleProxyRecord(link) : undefined
       if (existing?.dsh?.moduleFallback?.targets === undefined) {
-        throw new Error(`dsh: ${link} exists and is not a symlink or dsh-managed module proxy; remove it so dsh can manage the installation fallback`)
+        // A mount-point junction libuv cannot parse as a symlink reads as a
+        // directory with a failing readlink, so it is repaired instead of
+        // failing the launch. rmdir removes the reparse point alone — it never
+        // descends into the link target, and any real directory holding a
+        // package keeps the fail-loud error below.
+        try {
+          rmdirSync(link)
+        } catch {
+          throw new Error(`dsh: ${link} exists and is not a symlink or dsh-managed module proxy; remove it so dsh can manage the installation fallback`)
+        }
+      } else {
+        rmSync(link, { recursive: true })
       }
-      rmSync(link, { recursive: true })
       stat = undefined
     }
     if (stat !== undefined) {
@@ -261,7 +282,7 @@ function ensureSymlink(link: string, target: string): void {
     // staged deterministically from the public API.
     /* v8 ignore next 4 */
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
-      || !lstatSync(link).isSymbolicLink() || !symlinkPointsTo(link, target)) {
+      || !linkResolvesTo(link, target)) {
       throw error
     }
   }
@@ -284,6 +305,24 @@ function canonicalLinkPath(path: string): string | undefined {
 function symlinkPointsTo(link: string, target: string): boolean {
   const actual = resolve(dirname(link), readlinkSync(link))
   const canonicalActual = canonicalLinkPath(actual)
+  const canonicalTarget = canonicalLinkPath(resolve(target))
+  return canonicalActual !== undefined && canonicalActual === canonicalTarget
+}
+
+/**
+ * Return whether `link` resolves to the same directory as `target`. Unlike
+ * {@link symlinkPointsTo} this does not read the link itself, so it also
+ * recognizes a junction whose reparse data Node cannot parse.
+ */
+function linkResolvesTo(link: string, target: string): boolean {
+  let resolved
+  try {
+    resolved = realpathSync.native(link)
+  } catch {
+    // A link whose target is gone cannot identify the generation it was written for.
+    return false
+  }
+  const canonicalActual = canonicalLinkPath(resolved)
   const canonicalTarget = canonicalLinkPath(resolve(target))
   return canonicalActual !== undefined && canonicalActual === canonicalTarget
 }
@@ -841,10 +880,39 @@ export function loadProfileDirectory(
     return { packageName, packageDir, patchPath, patches: loadOverlayPatches(binName, patchPath) }
   })
   const patchPath = join(dir, PROFILE_PATCH_FILENAME)
+  if (options.userLayer !== false) migrateLegacyAutomationSwitch(patchPath)
   const patches = options.userLayer !== false && existsSync(patchPath)
     ? loadOverlayPatches(binName, patchPath)
     : []
   return { name: basename(dir), dir, layers, patchPath, patches, patchReload }
+}
+
+/** Legacy profile row id the scheduled-tasks switch wrote before it was split from the shared runner. */
+const LEGACY_AUTOMATION_ROW = 'automation-runner'
+
+/** Registration row the scheduled-tasks switch owns after the split. */
+const PIPELINE_SCHEDULER_ROW = 'pipeline-scheduler'
+
+/**
+ * Rewrite the old scheduled-tasks switch row in a user patch file.
+ *
+ * Before the shared runner and the scheduled-pipeline registration were
+ * separate rows, the switch wrote `automation-runner: disabled`. That row now
+ * also carries desk scheduling, so leaving it would let the scheduled-tasks
+ * switch disable the value desk. The migration renames only that row and keeps
+ * its `disabled` value, preserving the user's intent without requiring a manual
+ * edit. A patch that already names `pipeline-scheduler` is left untouched.
+ * @param patchPath - the profile's `cordis.patch.yml`.
+ */
+export function migrateLegacyAutomationSwitch(patchPath: string): void {
+  if (!existsSync(patchPath)) return
+  const text = readFileSync(patchPath, 'utf8')
+  if (!text.includes(LEGACY_AUTOMATION_ROW) || text.includes(PIPELINE_SCHEDULER_ROW)) return
+  const pattern = /^(\s*-\s*id:\s*['"]?)automation-runner(['"]?\s*)$/gmu
+  if (!pattern.test(text)) return
+  const next = text.replace(pattern, `$1${PIPELINE_SCHEDULER_ROW}$2`)
+  const mode = statSync(patchPath).mode & 0o777
+  writeFileSync(patchPath, next, { mode })
 }
 
 /**

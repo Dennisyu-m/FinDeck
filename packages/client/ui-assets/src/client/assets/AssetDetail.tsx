@@ -36,6 +36,8 @@ type VerbOutcome =
 export interface AssetDetailProps {
   /** The library entry the face belongs to. */
   readonly asset: AssetLibraryAsset
+  /** Exact version to open; absent opens the latest. */
+  readonly initialVersion?: number | undefined
   /** Read one version's face and manifest. */
   readonly loadFace: (asset: string, version?: number) => Promise<AssetFaceResult>
   /** Run one verb through the bridge. */
@@ -169,7 +171,7 @@ function TechDetails({ asset, manifest, dir, loadFile, t }: {
 }
 
 /** Render one asset's console: title, status, actions, face, lineage, details. */
-export function AssetDetail({ asset, loadFace, runVerb, loadFile, askAi, onBack, onNavigate, focusVerb, onFocusConsumed, t }: AssetDetailProps): ReactNode {
+export function AssetDetail({ asset, initialVersion, loadFace, runVerb, loadFile, askAi, onBack, onNavigate, focusVerb, onFocusConsumed, t }: AssetDetailProps): ReactNode {
   const [request, setRequest] = useState(0)
   const [state, setState] = useState<FaceState>({ status: 'loading' })
   const [outcome, setOutcome] = useState<VerbOutcome | undefined>(undefined)
@@ -181,12 +183,12 @@ export function AssetDetail({ asset, loadFace, runVerb, loadFile, askAi, onBack,
     let live = true
     setState({ status: 'loading' })
     setOutcome(undefined)
-    void loadFace(asset.name, asset.latest_version).then(
+    void loadFace(asset.name, initialVersion ?? asset.latest_version).then(
       (value) => { if (live) setState({ status: 'ready', value }) },
       (error: unknown) => { if (live) setState({ status: 'failed', message: String(error) }) },
     )
     return () => { live = false }
-  }, [asset.name, asset.latest_version, loadFace, request])
+  }, [asset.name, asset.latest_version, initialVersion, loadFace, request])
 
   const run = (verb: string, confirmed: boolean): void => {
     if (!confirmed && !SAFE_AUTORUN.has(verb) && !window.confirm(t('confirmVerb', { verb: verbLabel(verb, t) }))) return

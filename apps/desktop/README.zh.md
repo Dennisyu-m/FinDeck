@@ -24,6 +24,8 @@ Electron 薄壳：把现有的 FinDeck Web UI 装进一个常驻桌面窗口，�
 
 安装版没有检出目录，也不能假定机器上有 Node，因此用安装包自带的 Node 运行时跑服务，完全不经过 PowerShell。两种模式都把子进程或启动器的输出写进同一组日志文件，并且都先请求一次候选 token URL 再加载页面：只有打印该 token 的那次启动会回答 `303`，把 token 换成会话 cookie。
 
+外壳自己 spawn 服务时用的 Node 按形态解析：安装版取 `<安装目录>/runtime/node/bin/node.exe`；检出目录里没有 `runtime/node`，改用机器上的 Node——先查 `PATH`，再查常见安装位置，与 `start-findeck.ps1` 的查找方式一致。
+
 服务**刻意不跑在 Electron 自带的 Node 上**（即 `ELECTRON_RUN_AS_NODE=1` 的 Electron）。本 harness 不支持那种载体：`@deepseek-ai/dsh-app-boot` 通过 `node-addon-require-builtin` 访问 Node 内部 ESM loader，而该原生模块支持的 Electron 指纹不包含本包依赖的 Electron；`dsh-skill-office` 一行也明确拒绝在没有独立 Node 的 Electron 下激活。更何况整个仓库实际验证过的就是普通 Node，所以安装包自带一份，而不是另造一个会分叉的运行时。
 
 端口被占用时两种模式的处理也不同。检出的启动器独占 3081，被非它管理的进程占住时直接拒绝启动；安装版会先看该端口上是否已有一个能自证 token 的 FinDeck 服务并直接采用，否则从 3081 起逐个往后试（3081 → 3082 → …）到第一个空闲端口。壳退出时**故意**让服务继续常驻，所以下次启动是采用它，而不是再起一份。

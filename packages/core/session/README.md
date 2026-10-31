@@ -143,7 +143,7 @@ Appended surface entries are resent on later steps. A `replace` surface operatio
 
 Appended surface entries preserve reusable prefixes. A `replace` operation invalidates reuse from the first shadowed message even though the underlying event log stays append-only.
 
-### Crash-repair result
+### Unanswered tool-call recovery
 
 #### What the model sees
 
@@ -151,7 +151,7 @@ If recovery finds an assistant tool request with no durable `tool/call`, its syn
 
 #### Token effect
 
-Zero tokens in an intact session. Each repaired call adds its retained risk-specific error text on resume.
+Zero tokens while every requested call has a durable result. A live step that fails before `step/end`, and a crashed resume, each add one error result per unanswered call.
 
 #### KV Cache effect
 

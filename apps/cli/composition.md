@@ -106,8 +106,14 @@ flowchart LR
   cfg --> plugin_dsh_base_skill_office
   plugin_dsh_base_tool_skill["tool-skill<br/>@deepseek-ai/dsh-tool-skill"]
   cfg --> plugin_dsh_base_tool_skill
+  plugin_dsh_base_tool_workspace_dependencies["tool-workspace-dependencies<br/>@deepseek-ai/dsh-tool-workspace-dependencies"]
+  cfg --> plugin_dsh_base_tool_workspace_dependencies
   plugin_dsh_base_tool_asset_library["tool-asset-library<br/>@deepseek-ai/dsh-tool-asset-library"]
   cfg --> plugin_dsh_base_tool_asset_library
+  plugin_dsh_base_automation_runner["automation-runner<br/>@deepseek-ai/dsh-automation-runner"]
+  cfg --> plugin_dsh_base_automation_runner
+  plugin_dsh_base_thesis_registry["thesis-registry<br/>@deepseek-ai/dsh-thesis"]
+  cfg --> plugin_dsh_base_thesis_registry
   plugin_dsh_base_tool_thesis["tool-thesis<br/>@deepseek-ai/dsh-tool-thesis"]
   cfg --> plugin_dsh_base_tool_thesis
   plugin_dsh_base_tool_memory["tool-memory<br/>@deepseek-ai/dsh-tool-memory"]
@@ -152,6 +158,8 @@ flowchart LR
   cfg --> plugin_dsh_base_tool_subagent
   plugin_dsh_base_tool_subagent_fork["tool-subagent-fork<br/>@deepseek-ai/dsh-tool-subagent"]
   cfg --> plugin_dsh_base_tool_subagent_fork
+  plugin_dsh_base_tool_cluster["tool-cluster<br/>@deepseek-ai/dsh-tool-cluster"]
+  cfg --> plugin_dsh_base_tool_cluster
   plugin_dsh_base_ptc_runtime["ptc-runtime<br/>@deepseek-ai/dsh-ptc-runtime-node"]
   cfg --> plugin_dsh_base_ptc_runtime
   plugin_dsh_base_workflow_ptc["workflow-ptc<br/>@deepseek-ai/dsh-workflow-ptc"]
@@ -188,6 +196,8 @@ flowchart LR
   cfg --> plugin_dsh_base_web_fetch_http
   plugin_dsh_base_tool_web["tool-web<br/>@deepseek-ai/dsh-tool-web"]
   cfg --> plugin_dsh_base_tool_web
+  plugin_dsh_base_mcp_resources["mcp-resources<br/>@deepseek-ai/dsh-mcp-resources"]
+  cfg --> plugin_dsh_base_mcp_resources
   plugin_dsh_base_tools["tools<br/>@deepseek-ai/dsh-tools"]
   cfg --> plugin_dsh_base_tools
   plugin_dsh_base_system_prompt["system-prompt<br/>@deepseek-ai/dsh-system-prompt"]
@@ -251,7 +261,10 @@ flowchart LR
 | `skill-badge` | `@deepseek-ai/dsh-skill-badge` |
 | `skill-office` | `@deepseek-ai/dsh-skill-office` |
 | `tool-skill` | `@deepseek-ai/dsh-tool-skill` |
+| `tool-workspace-dependencies` | `@deepseek-ai/dsh-tool-workspace-dependencies` |
 | `tool-asset-library` | `@deepseek-ai/dsh-tool-asset-library` |
+| `automation-runner` | `@deepseek-ai/dsh-automation-runner` |
+| `thesis-registry` | `@deepseek-ai/dsh-thesis` |
 | `tool-thesis` | `@deepseek-ai/dsh-tool-thesis` |
 | `tool-memory` | `@deepseek-ai/dsh-tool-memory` |
 | `redblue` | `@deepseek-ai/dsh-redblue` |
@@ -274,6 +287,7 @@ flowchart LR
 | `tool-subagent-inspect-agent` | `@deepseek-ai/dsh-tool-subagent-control/inspect-agent` |
 | `tool-subagent` | `@deepseek-ai/dsh-tool-subagent` |
 | `tool-subagent-fork` | `@deepseek-ai/dsh-tool-subagent` |
+| `tool-cluster` | `@deepseek-ai/dsh-tool-cluster` |
 | `ptc-runtime` | `@deepseek-ai/dsh-ptc-runtime-node` |
 | `workflow-ptc` | `@deepseek-ai/dsh-workflow-ptc` |
 | `tool-workflow` | `@deepseek-ai/dsh-tool-workflow` |
@@ -292,6 +306,7 @@ flowchart LR
 | `web-search-deepseek` | `@deepseek-ai/dsh-web-search-deepseek` |
 | `web-fetch-http` | `@deepseek-ai/dsh-web-fetch-http` |
 | `tool-web` | `@deepseek-ai/dsh-tool-web` |
+| `mcp-resources` | `@deepseek-ai/dsh-mcp-resources` |
 | `tools` | `@deepseek-ai/dsh-tools` |
 | `system-prompt` | `@deepseek-ai/dsh-system-prompt` |
 | `agent-loop` | `@deepseek-ai/dsh-agent-loop` |

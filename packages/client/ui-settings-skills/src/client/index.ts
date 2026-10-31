@@ -113,6 +113,9 @@ export function apply(ctx: ClientContext): void {
     id: 'skills',
     order: 25,
     label: () => t('nav'),
+    icon: 'sparkle',
+    place: 'settings',
+    settingsOrder: 3,
     inject: face,
   }, SkillsSection))
 

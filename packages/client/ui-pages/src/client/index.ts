@@ -89,6 +89,9 @@ export function apply(ctx: ClientContext): void {
     id: 'schedule',
     order: 2,
     label: () => t('schedule.nav'),
+    icon: 'clock',
+    place: 'nav',
+    navOrder: 1,
     locale: NS,
     inject: () => ({ load: loadSchedules, control: controlSchedule, remove: removeSchedule }),
   }, SchedulePage))
@@ -103,6 +106,9 @@ export function apply(ctx: ClientContext): void {
     id: 'data-env',
     order: 12,
     label: () => t('data-env.nav'),
+    icon: 'layers',
+    place: 'settings',
+    settingsOrder: 1,
     locale: NS,
     inject: () => ({
       components: catalog.actions,
@@ -115,6 +121,9 @@ export function apply(ctx: ClientContext): void {
     id: 'help',
     order: 95,
     label: () => t('help.nav'),
+    icon: 'help',
+    place: 'settings',
+    settingsOrder: 10,
     locale: NS,
   }, HelpPage))
 }

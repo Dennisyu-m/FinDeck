@@ -11,11 +11,9 @@
  *
  * - A source checkout runs `start-findeck.ps1` (the same path a manual launch
  *   uses) and reads the token URL the launcher leaves in the server log.
- * - An installed build has no checkout and no guaranteed system Node, so it
- *   runs the server itself: `process.execPath` with `ELECTRON_RUN_AS_NODE`,
- *   which is the Node runtime Electron already ships, against the runtime tree
- *   staged under `resources/server`. The token URL is read from that child's
- *   stdout.
+ * - An installed build has no checkout, so it runs the server itself on the
+ *   Node runtime the installer stages under `resources/server`. The token URL
+ *   is read from that child's stdout.
  *
  * `--smoke` runs the same startup path headlessly (hidden window, no tray, no
  * hotkey), prints `SMOKE OK <url>` once the page finishes loading, and exits.
@@ -46,15 +44,18 @@ const REPO_ROOT = process.env.FINDECK_REPO
 const LAUNCHER = join(REPO_ROOT, 'start-findeck.ps1')
 /** Built CLI entry inside the runtime tree, at its repository location. */
 const SERVER_BIN = join(REPO_ROOT, 'apps', 'cli', 'lib', 'bin.js')
+/** Node executable name on this platform. */
+const NODE_EXE = process.platform === 'win32' ? 'node.exe' : 'node'
 /**
- * The Node runtime the installer ships, so the installed app never asks the
- * user for one. The server deliberately does not run on Electron's own Node:
- * the loader reaches Node internals through `node-addon-require-builtin`, whose
- * supported Electron fingerprints exclude this build, and `dsh-skill-office`
- * refuses to activate under Electron. A plain Node is the runtime the whole
- * harness is verified against, so the installer carries one.
+ * The Node runtime the installer ships, relative to the installation root, so
+ * the installed app never asks the user for one. The server deliberately does
+ * not run on Electron's own Node: the loader reaches Node internals through
+ * `node-addon-require-builtin`, whose supported Electron fingerprints exclude
+ * this build, and `dsh-skill-office` refuses to activate under Electron. A
+ * plain Node is the runtime the whole harness is verified against.
+ * A source checkout has no `runtime/node`; {@link resolveNodeBin} covers it.
  */
-const NODE_BIN = join(REPO_ROOT, 'runtime', 'node', 'bin', 'node.exe')
+const BUNDLED_NODE = join('runtime', 'node', 'bin', NODE_EXE)
 /** Icon assets of this package; `icon.ico` carries 16/32/48/256 for the window. */
 const WINDOW_ICON = join(import.meta.dirname, '..', 'assets', 'icon.ico')
 const TRAY_ICON = join(import.meta.dirname, '..', 'assets', 'icon-16.png')
@@ -278,10 +279,42 @@ async function adoptedUrlOnPort(port) {
 }
 
 /**
+ * Node runtime the shell runs the server on. An installed build carries one
+ * under `resources/server`, so the machine needs none; a source checkout has
+ * no `runtime/node`, so it uses the Node `start-findeck.ps1` would find: PATH
+ * first, then the standard Windows install locations. Electron's own Node is
+ * never a candidate ({@link BUNDLED_NODE}).
+ * @returns {string | null} absolute path to a Node executable, or null when the machine has none.
+ */
+function resolveNodeBin() {
+  if (app.isPackaged) return join(REPO_ROOT, BUNDLED_NODE)
+  const fromPath = findOnPath(NODE_EXE)
+  if (fromPath) return fromPath
+  for (const dir of [
+    process.env.ProgramFiles === undefined ? null : join(process.env.ProgramFiles, 'nodejs'),
+    process.env['ProgramFiles(x86)'] === undefined ? null : join(process.env['ProgramFiles(x86)'], 'nodejs'),
+    process.env.LOCALAPPDATA === undefined ? null : join(process.env.LOCALAPPDATA, 'Programs', 'nodejs'),
+  ]) {
+    if (dir !== null && existsSync(join(dir, NODE_EXE))) return join(dir, NODE_EXE)
+  }
+  return null
+}
+
+/** @param {string} exe @returns {string | null} absolute path of `exe` in the first PATH directory that holds it. */
+function findOnPath(exe) {
+  const separator = process.platform === 'win32' ? ';' : ':'
+  for (const dir of (process.env.PATH ?? '').split(separator)) {
+    if (dir !== '' && existsSync(join(dir, exe))) return join(dir, exe)
+  }
+  return null
+}
+
+/**
  * Starts the runtime tree's own server as a child of this process and waits
  * for the token URL it prints. The child runs on the Node runtime the installer
  * carries, which is what a machine without Node.js gets instead of an
- * installation step.
+ * installation step; a checkout uses the machine's own Node
+ * ({@link resolveNodeBin}).
  *
  * The child's streams are the log files, not pipes. A pipe would tie the
  * server's lifetime to this shell's -- the write side closes with the parent,
@@ -291,14 +324,18 @@ async function adoptedUrlOnPort(port) {
  * @param {number} port @returns {Promise<string>} authenticated URL for this boot
  */
 async function ensureServiceFromRuntime(port) {
-  for (const required of [NODE_BIN, SERVER_BIN]) {
+  const nodeBin = resolveNodeBin()
+  if (nodeBin === null) {
+    throw new Error('找不到 Node.js：PATH 与常见安装位置都没有 node；开发形态请先安装 Node.js')
+  }
+  for (const required of [nodeBin, SERVER_BIN]) {
     if (!existsSync(required)) throw new Error(`运行时缺少 ${required}；安装可能不完整`)
   }
   mkdirSync(join(FINDECK_HOME, 'logs'), { recursive: true })
   const out = openSync(LOG_OUT, 'w')
   const err = openSync(LOG_ERR, 'w')
   server = spawn(
-    NODE_BIN,
+    nodeBin,
     [SERVER_BIN, 'web', '--no-open', '--port', String(port)],
     {
       cwd: REPO_ROOT,

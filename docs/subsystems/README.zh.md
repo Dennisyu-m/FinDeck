@@ -49,6 +49,7 @@
 | [invariants.md](invariants.zh.md) | 运行时不变式注册表：选择配置 `Config`、`InvariantInstaller`/`InvariantFailure`、空配套插件约定 |
 | [web-server.md](web-server.zh.md) | HTTP 载体：`WebRouteKind`/`WebRoute`、匹配顺序、可认领的回退席位、index 渲染挂接点 |
 | [webhook.md](webhook.zh.md) | 通过身份验证的提供方交付、任意程序化规则，以及 fire-and-forget 的 Workspace Session 创建 |
+| [desk.md](desk.zh.md) | 值班宿主服务：共用的自动化调度、值班任务管理，以及命题注册表 |
 | [mcp.md](mcp.zh.md) | MCP 分组：每服务器一个 `mcp-client` 连接与带服务器前缀的工具名、按作用域划分的 `ctx.mcpResources` 资源接缝及其三个共享工具，以及通过 `ctx.mcpAdmin` 进行的 Remote 服务器管理 |
 | [voice-input.md](voice-input.zh.md) | 实验性语音识别：`ctx.speechToText` 提供方注册表与 `ctx.speechController` Remote 面、提供方选择、准备工作，以及浏览器与 Host 的归属 |
 | [storage.md](storage.zh.md) | 存储子系统：后端约定（`StorageBackend`）、`StorageForms`、`DomainSpec`/`Domain`、`domain/changed` |

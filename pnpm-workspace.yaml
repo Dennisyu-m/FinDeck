@@ -79,7 +79,7 @@ minimumReleaseAgeExclude:
   - '@deepseek-ai/libreoffice-kit-win32-x64@0.1.1'
   # Fresh pi-ai releases carry the model catalog updates that are the whole
   # point of bumping it; waiting out the release age would defeat that.
-  - '@earendil-works/pi-ai@0.85.1'
+  - '@earendil-works/pi-ai@0.87.1'
   - node-addon-native-custom-loader@0.1.6
   - node-addon-require-builtin-darwin-arm64@0.1.6
   - node-addon-require-builtin-darwin-x64@0.1.6
@@ -105,5 +105,10 @@ minimumReleaseAgeExclude:
   - '@openai/codex@0.153.4||0.153.4-darwin-arm64||0.153.4-darwin-x64||0.153.4-linux-arm64||0.153.4-linux-x64||0.153.4-win32-arm64||0.153.4-win32-x64'
 
 patchedDependencies:
+  # Streaming tool-call arguments were re-parsed from the whole accumulated JSON
+  # on every delta, making a multi-MB argument stream O(n²) (earendil-works/pi#9265).
+  # The patch drops those per-delta parses; `toolcall_end` still parses the final
+  # buffer, so only the mid-stream `partial.content[i].arguments` snapshot changes.
+  '@earendil-works/pi-ai@0.87.1': patches/@earendil-works__pi-ai@0.87.1.patch
   '@yao-pkg/pkg@6.21.0': patches/@yao-pkg__pkg@6.21.0.patch
   node-pty@1.2.0-beta.15: patches/node-pty@1.2.0-beta.15.patch

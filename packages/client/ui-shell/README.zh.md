@@ -62,7 +62,7 @@ kind: "package-reference"
 <a id="known-limitations-and-deferred-work"></a>
 
 - **工作区浏览器仍是 dsh 视觉**——浏览区原样渲染 `sidebar.workspaces` occupant；按原型极简分组列表重绘随 U2 会话工单交付。
-- **设置弹窗的导航栏是 shell 自己的清单**——弹窗列出的是设置页（`SETTINGS_SECTIONS`），而非全部 `settings.section` 注册：本 fork 把整页表面（圆桌房间、研究资产与定时任务页）也走同一注册表，这些页面保留整页布局。新功能插件注册的 section 只有被 shell 的清单收录后才会出现在弹窗里。
+- **设置弹窗的导航栏是 shell 自己的清单**——弹窗列出的是设置页（`SETTINGS_SECTIONS`），而非全部 `settings.section` 注册：本 fork 把整页表面（圆桌房间、研究资产与会话提醒页）也走同一注册表，这些页面保留整页布局。新功能插件注册的 section 只有被 shell 的清单收录后才会出现在弹窗里。
 - **新手导览暂不可用**——导览协调器在弹窗 shell 的 occupant（`SettingsRoot`）上，页面 shell 不渲染它；导览随 U5 设置四页回归。
 - **侧栏是收起为无，而非收成图标栏**——列宽固定，`toggleSidebar`（与框架自己的开关）直接把整列移出框架，没有 rail 形态。
 - **暂无 `--ad-*` 暗色覆盖**——FinDeck 配色亮色先行；暗色值随暗色主题工单交付。

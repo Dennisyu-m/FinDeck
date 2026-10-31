@@ -86,6 +86,14 @@
     - id: directory-picker
       name: '@deepseek-ai/dsh-host-directory-picker-auto'
 
+    # Authenticated webhook deliveries as trusted rules. The runtime itself is
+    # provider-neutral and this patch does not mount an adapter. The bundle
+    # depends on dsh-webhook-github so a deployment insert can resolve it;
+    # that insert supplies the secret reference and the route. The desk
+    # service registers one rule per enabled event trigger on this runtime.
+    - id: webhook-runtime
+      name: '@deepseek-ai/dsh-webhook'
+
     # Read-only projection of current Loader entries for trusted client RPCs.
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
@@ -314,6 +322,43 @@
     # Primary-navigation pages (schedule, data environment) and the Help page.
     - id: ui-pages
       name: '@deepseek-ai/dsh-client-ui-pages'
+
+    # Scheduled-tasks page, split from ui-pages so its Loader row can be
+    # disabled without taking session reminders, the environment page, or Help.
+    - id: ui-automation
+      name: '@deepseek-ai/dsh-client-ui-automation'
+
+    # Scheduled-pipeline registration for the shared automation runner. The
+    # runner row itself stays mounted for both layers; this row is the one the
+    # "scheduled tasks" switch unloads, so turning that switch off stops
+    # pipelines without touching a desk run.
+    - id: pipeline-scheduler
+      name: '@deepseek-ai/dsh-automation-runner/pipeline-scheduler'
+
+    # Automation settings. Groups are configuration: each id must exist.
+    # Both groups are user-layer switches; the desk group starts disabled below.
+    - id: ui-settings-automation
+      name: '@deepseek-ai/dsh-client-ui-settings-automation'
+      config:
+        groups:
+          - id: scheduled-tasks
+            entries: [pipeline-scheduler, ui-automation]
+          - id: desk
+            entries: [desk, ui-desk]
+            defaultOn: false
+
+    # Desk task management: the host manager, its model tools, run reading,
+    # event/due triggers, feedback, and the scorecard. Disabled by default; the
+    # automation settings switch turns this row and ui-desk together.
+    - id: desk
+      name: '@deepseek-ai/dsh-desk'
+      disabled: true
+
+    # Desk page: task list and form, run detail, report timeline, feedback, and
+    # the scorecard. Disabled with the host row above.
+    - id: ui-desk
+      name: '@deepseek-ai/dsh-client-ui-desk'
+      disabled: true
 
     # Research-assets primary page: four tabs over assetOverview.
     - id: ui-assets

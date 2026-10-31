@@ -2,7 +2,7 @@
 
 [English](schedule.md) | 中文
 
-此 overlay 让一个 `dsh web` 进程显式启用 Schedule 提醒，同时不改变交付的默认 Web 组合：
+此 overlay 给一个 `dsh web` 进程加上浏览器时区解释和对话 header 里的提醒目录。交付的 base 组合已经挂载 `schedule` 及其工具；此 overlay 不再插入那一行：
 
 ```sh
 dsh web --patch apps/cli/config/examples/schedule/cordis.yml
@@ -10,7 +10,7 @@ dsh web --patch apps/cli/config/examples/schedule/cordis.yml
 
 当前 overlay 支持使用正整数 `after_seconds`、绝对时间 `at` 目标，或至少 300 秒的固定速率 `every_seconds` 间隔创建提醒。模型通过 `schedule_create`、`schedule_list`、`schedule_delete`、`schedule_pause` 和 `schedule_resume` 管理它们；每个结果都会把交付标为 `session-local`。
 
-提醒可以暂停和恢复。在会话内让 AI 调用 `schedule_pause` 或 `schedule_resume`；在「定时任务」页面上，使用每张卡片上的开关。已暂停的提醒绝不触发，也不会累积积压：恢复一条已逾期的重复提醒只会运行其最新一个发生时点，而已过期的一次性提醒会在下一次驱动时触发。
+提醒可以暂停和恢复。在会话内让 AI 调用 `schedule_pause` 或 `schedule_resume`；在「会话提醒」页面上，使用每张卡片上的开关。已暂停的提醒绝不触发，也不会累积积压：恢复一条已逾期的重复提醒只会运行其最新一个发生时点，而已过期的一次性提醒会在下一次驱动时触发。
 
 启用此 overlay 后，成功打开且存在活动提醒的 Session 会在对话 header 中显示只读目录。目录列出完整 prompt、等待中或已逾期状态、单次或精确重复周期、浏览器本地目标时间与相对时间。侧边栏还会在 grouped、flat 与 search 行当前可用的 projection 值非空时，于标题后显示不可交互的闹钟。这些界面不会创建、编辑、删除或确认提醒；cold Session 的缓存闹钟允许短暂漏显或残留。
 

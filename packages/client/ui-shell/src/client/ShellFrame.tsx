@@ -22,11 +22,10 @@ import type {
   PropsLocale, PropsRenderSlots, PropsRuntime, PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconCloseOutlineMedium, Modal } from '@deepseek-ai/dsh-client-ui-primitives'
-import { IconDefs, ShellIcon, type IconName } from './icons.tsx'
+import { IconDefs, ShellIcon } from './icons.tsx'
 import { Sidebar } from './Sidebar.tsx'
 import { RIGHTBAR_DEFAULT_WIDTH, type createShellStore } from './stores.ts'
 import type { ShellFrameInjected } from './contract/inject.ts'
-import type { ShellKey } from './locales.ts'
 import css from './ShellFrame.module.css'
 
 /** Width of the fixed sidebar column (`.side` in Sidebar.module.css). */
@@ -47,20 +46,6 @@ const RIGHTBAR_MAX_RATIO = 0.7
  * keep their full-page layout instead of rendering inside the dialog. Every
  * entry names the section id its page is registered under.
  */
-const SETTINGS_SECTIONS: readonly { section: string; icon: IconName; key: ShellKey }[] = [
-  { section: 'models', icon: 'chip', key: 'box.models' },
-  { section: 'data-env', icon: 'layers', key: 'box.dataEnv' },
-  { section: 'projects', icon: 'folder', key: 'box.projects' },
-  { section: 'skills', icon: 'sparkle', key: 'box.skills' },
-  { section: 'mcp', icon: 'plug', key: 'box.mcp' },
-  { section: 'sessions', icon: 'chat', key: 'box.sessions' },
-  { section: 'system-prompt', icon: 'note', key: 'box.persona' },
-  { section: 'plugins', icon: 'puzzle', key: 'nav.plugins' },
-  { section: 'general', icon: 'gear', key: 'box.system' },
-  { section: 'agent-presets', icon: 'mask', key: 'box.presets' },
-  { section: 'help', icon: 'help', key: 'box.help' },
-]
-
 /** Full composed props: runtime share + child-slot render share + store share + inject face + locale seat. */
 export type ShellFrameProps =
   & PropsRuntime<'root'>
@@ -74,6 +59,7 @@ export function ShellFrame({
   useStore,
   actions,
   useSessions,
+  sections,
   renderSlot,
   SessionProvider,
   startSession,
@@ -95,6 +81,10 @@ export function ShellFrame({
   const profile = useSyncExternalStore(
     onStoreChange => userProfile.hooks.userProfile.subscribe(onStoreChange),
     () => userProfile.hooks.userProfile.getSnapshot(),
+  )
+  const chrome = useSyncExternalStore(
+    onStoreChange => sections.subscribe(onStoreChange),
+    () => sections.getSnapshot(),
   )
   const restartStatus = useSyncExternalStore(
     onStoreChange => serviceRestart.hooks.restart.subscribe(onStoreChange),
@@ -151,7 +141,7 @@ export function ShellFrame({
 
   // The dialog's header names the page its rail shows; the settings title
   // stands in when the selected id is not one of the rail's pages.
-  const activeSettingsKey = SETTINGS_SECTIONS.find(item => item.section === settingsSection)?.key
+  const activeSettingsLabel = chrome.settings.find(item => item.id === settingsSection)?.label
   const closeSettings = (): void => { actions.closeSettings() }
 
   return (
@@ -187,6 +177,7 @@ export function ShellFrame({
         onOpenSettings={() => { actions.openSettings() }}
         renderWorkspaces={renderSlot}
         renderSectionSidebar={renderSlot}
+        navItems={chrome.nav}
         t={t}
         displayName={profile.displayName}
         renaming={profile.busy}
@@ -265,7 +256,7 @@ export function ShellFrame({
           className={css.settingsDialog as string}
         >
           <nav className={css.settingsRail} aria-label={t('settings.region')}>
-            {SETTINGS_SECTIONS.map(({ section: id, icon, key }) => (
+            {chrome.settings.map(({ id, icon, label }) => (
               <button
                 key={id}
                 type="button"
@@ -274,7 +265,7 @@ export function ShellFrame({
                 onClick={() => { actions.selectSettingsSection(id) }}
               >
                 <ShellIcon name={icon} className={css.settingsRailIcon} size={16} />
-                {t(key)}
+                {label}
               </button>
             ))}
             {/* Service lifecycle: the development pain this control removes is a
@@ -295,7 +286,7 @@ export function ShellFrame({
           <div className={css.settingsPanel}>
             <div className={css.settingsHeader}>
               <span className={css.settingsTitle}>
-                {activeSettingsKey === undefined ? t('box.settings') : t(activeSettingsKey)}
+                {activeSettingsLabel ?? t('box.settings')}
               </span>
               <button
                 type="button"

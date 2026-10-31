@@ -91,6 +91,8 @@ export interface DeepSeekConnectionOptions {
 export interface DeepSeekAdapterOptions {
   /** Report unusable native Messages replay metadata without exposing content or signatures. */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Report an extension acceptance failure after HTTP 2xx; the request continues. */
+  onExtensionsUnaccepted?: (detail: { provider: string; model: string; error: unknown }) => void
   /** Current validated connection facts; called once per operation. */
   options: () => DeepSeekConnectionOptions
   /**

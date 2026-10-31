@@ -11,16 +11,9 @@
 import clsx from 'clsx'
 import { useState, type ReactNode } from 'react'
 import type { PropsLocale, PropsRenderSlots } from '@deepseek-ai/dsh-client-ui-slots'
-import { ShellIcon, type IconName } from './icons.tsx'
-import type { ShellKey } from './locales.ts'
+import type { ChromeRow } from './chrome.ts'
+import { ShellIcon } from './icons.tsx'
 import css from './Sidebar.module.css'
-
-/** One direct nav entry: target section id, glyph, and dictionary key. */
-const NAV_ITEMS: readonly { section: string; icon: IconName; key: ShellKey }[] = [
-  { section: 'plugins', icon: 'grid', key: 'nav.plugins' },
-  { section: 'schedule', icon: 'clock', key: 'nav.schedule' },
-  { section: 'research-assets', icon: 'layers', key: 'nav.assets' },
-]
 
 /** Props threaded from the root shell entry (state, callbacks, delegated slots, locale seat). */
 export interface SidebarProps {
@@ -49,6 +42,8 @@ export interface SidebarProps {
   renderWorkspaces: PropsRenderSlots<'sidebar.workspaces'>['renderSlot']
   /** Delegated per-section sidebar render call; an entry keyed by the active section replaces the workspaces region. */
   renderSectionSidebar: PropsRenderSlots<'sidebar.section'>['renderSlot']
+  /** Top-nav pages from live `settings.section` registrations. */
+  navItems: readonly ChromeRow[]
   /** Locale seat of the shell namespace. */
   t: PropsLocale<'shell'>['t']
   /** The user's display name (empty renders the localized default). */
@@ -70,7 +65,7 @@ export interface SidebarProps {
  */
 export function Sidebar({
   section, collapsed, onToggleSidebar, onOpenSection, onShowConversation, startSession, newRoundtable,
-  settingsOpen, onOpenSettings, renderWorkspaces, renderSectionSidebar, t, displayName, renaming, renameError,
+  settingsOpen, onOpenSettings, renderWorkspaces, renderSectionSidebar, navItems, t, displayName, renaming, renameError,
   onRename, onDismissRenameError,
 }: SidebarProps): ReactNode {
   const roundtable = section === 'roundtable'
@@ -125,7 +120,7 @@ export function Sidebar({
         <ShellIcon name="plus" className={css.navIcon} />
         {roundtable ? t('nav.newRoundtable') : t('nav.newSession')}
       </button>
-      {NAV_ITEMS.map(({ section: id, icon, key }) => (
+      {navItems.map(({ id, icon, label }) => (
         <button
           key={id}
           type="button"
@@ -134,7 +129,7 @@ export function Sidebar({
           onClick={() => { onOpenSection(id) }}
         >
           <ShellIcon name={icon} className={css.navIcon} />
-          {t(key)}
+          {label}
         </button>
       ))}
 

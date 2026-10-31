@@ -2,7 +2,7 @@
 
 /** Simplified Chinese dictionary (the key-set source of truth). */
 export const zh = {
-  nav: '资产',
+  nav: '研究资产',
   title: '资产中枢',
   blurb: '同一批资产的两个界面：AI 走文件与 shell，你走这张脸。入库的模型、数据、权重、脚本、图表与报告都在这里，点开即见它的面（face）。',
   tabAssets: '资产',
@@ -152,6 +152,27 @@ export const zh = {
   newFlowError: '创建失败：{message}',
   newFlowOk: '流程已创建，可在会话模式下拉中选用。',
   modelDefaultHint: 'default = 跟随会话模型',
+  tabWork: 'Work 模式',
+  selectForWork: '选择',
+  selectModeOn: '多选资产',
+  selectModeOff: '退出多选',
+  selectionCount: '已选 {count} 个资产',
+  createWork: '创建 Work 模式',
+  createWorkTitle: '用所选资产创建 Work 模式',
+  createWorkName: '名称（kebab-case）',
+  createWorkDisplay: '展示名',
+  createWorkDescription: '描述',
+  createWorkSubmit: '创建并打开会话',
+  createWorkBusy: '创建中…',
+  createWorkError: '创建失败：{message}',
+  createWorkEmpty: '先选择至少一个资产。',
+  workEmpty: '还没有 Work 模式定义。',
+  workAssetsCount: '{count} 个资产',
+  workUserDefined: '用户定义',
+  workOpen: '打开会话',
+  workOpenBusy: '打开中…',
+  workOpenError: '打开失败：{message}',
+  workNoConventions: '未声明运行约定',
 } satisfies Record<string, string>
 
 /** The ui.assets namespace key union. */
@@ -159,7 +180,7 @@ export type AssetsLocaleKey = keyof typeof zh
 
 /** English dictionary, checked complete against the zh key set. */
 export const en = {
-  nav: 'Assets',
+  nav: 'Research assets',
   title: 'Asset hub',
   blurb: 'Two faces of one asset library: the AI reads files and the shell, you read this page. Archived models, datasets, weights, scripts, charts, and reports are all here — open one and its face renders.',
   tabAssets: 'Assets',
@@ -309,4 +330,25 @@ export const en = {
   newFlowError: 'Create failed: {message}',
   newFlowOk: 'Flow created — pick it in the session mode dropdown.',
   modelDefaultHint: 'default = follow the session model',
+  tabWork: 'Work modes',
+  selectForWork: 'Select',
+  selectModeOn: 'Select assets',
+  selectModeOff: 'Exit selection',
+  selectionCount: '{count} assets selected',
+  createWork: 'Create Work mode',
+  createWorkTitle: 'Create a Work mode from the selected assets',
+  createWorkName: 'Name (kebab-case)',
+  createWorkDisplay: 'Display name',
+  createWorkDescription: 'Description',
+  createWorkSubmit: 'Create and open a session',
+  createWorkBusy: 'Creating…',
+  createWorkError: 'Create failed: {message}',
+  createWorkEmpty: 'Select at least one asset first.',
+  workEmpty: 'No Work mode definitions yet.',
+  workAssetsCount: '{count} assets',
+  workUserDefined: 'user-defined',
+  workOpen: 'Open session',
+  workOpenBusy: 'Opening…',
+  workOpenError: 'Could not open: {message}',
+  workNoConventions: 'No execution conventions declared',
 } satisfies Record<AssetsLocaleKey, string>

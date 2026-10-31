@@ -277,7 +277,15 @@ function entryOf(
     scope: declaration.scope,
     summary: firstSentence(doc),
     doc,
-    registerOptions: REGISTER_OPTIONS[declaration.kind as (typeof KINDS)[number]],
+    registerOptions: declaration.key === 'settings.section'
+      ? [
+        ...REGISTER_OPTIONS.list,
+        { name: 'icon', requirement: 'optional', type: 'string', doc: 'Shell glyph name (the ui-shell 24×24 line set). A string, not a ReactNode. An unknown name draws no glyph.' },
+        { name: 'place', requirement: 'optional', type: "'nav' | 'settings' | 'both'", doc: 'Which shell list shows this section. Omit for a page the shell reaches through its own chrome (the roundtable tab). `both` lists it in the top nav and the settings rail.' },
+        { name: 'navOrder', requirement: 'optional', type: 'number', doc: 'Position in the top nav, ascending. Used when place is nav or both.' },
+        { name: 'settingsOrder', requirement: 'optional', type: 'number', doc: 'Position in the settings rail, ascending. Used when place is settings or both.' },
+      ]
+      : REGISTER_OPTIONS[declaration.kind as (typeof KINDS)[number]],
     ownerProps: owner.declarations.map(type => truncate(type.text)),
     ownerPropsReferences: owner.references,
     standardProps: kits.get(declaration.scope) ?? [],

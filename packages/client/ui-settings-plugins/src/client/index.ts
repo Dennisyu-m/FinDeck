@@ -129,6 +129,10 @@ export function apply(ctx: ClientContext): void {
     id: 'plugins',
     order: 15,
     label: () => t('nav'),
+    icon: 'puzzle',
+    place: 'both',
+    navOrder: 0,
+    settingsOrder: 7,
     locale: NS,
     children: { 'settings.plugins.body': { kind: 'list', scope: 'root' } },
   }, PluginsSettingsSection))

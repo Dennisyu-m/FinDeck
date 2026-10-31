@@ -31,6 +31,7 @@ import type {} from '@deepseek-ai/dsh-cmdline'
 import type {} from '@deepseek-ai/dsh-session-query'
 import { internals } from './runner-internals.ts'
 import { projectJsonRun, boundJsonLine } from './json-stream.ts'
+import { watchBudget } from './budget.ts'
 
 /** Stable Cordis plugin name. */
 export const name = 'headless-runner'
@@ -46,12 +47,22 @@ export interface Config {
   sessionId?: string
   /** Whether stdout carries the machine-readable event stream instead of final text. */
   json?: boolean
+  /**
+   * Cumulative model-usage cap for the whole run: provider-reported input plus
+   * output tokens across every completed step. Absent means no cumulative cap.
+   * Cache tokens are reported separately and never added twice.
+   */
+  budgetTokens?: number
+  /** Per-request output cap. This is not the run budget; it bounds one response. */
+  maxOutputTokens?: number
 }
 
 export const Config: z<Config> = z.object({
   task: z.string(),
   sessionId: z.string(),
   json: z.boolean(),
+  budgetTokens: z.natural().min(1),
+  maxOutputTokens: z.natural().min(1),
 })
 
 /** Outcome of one owned run interval. */
@@ -328,7 +339,11 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
   }
 
   const selection = defaultModel.currentSelection()
-  const agentOptions = { provider: selection.provider, model: selection.model }
+  const agentOptions = {
+    provider: selection.provider,
+    model: selection.model,
+    ...config.maxOutputTokens === undefined ? {} : { maxTokens: config.maxOutputTokens },
+  }
   // This bundle composes no preset roster, so the model-facing rows sit in the
   // host plane and the agent reads them from the global layer. A deployment
   // that DOES configure one has to join it here first
@@ -358,6 +373,18 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
   const firstSeq = agent.session.seq
   const projection = config.json === true ? projectJsonRun(ctx, agent, io.stdout, { cwd }) : undefined
   const stopReasoning = projection === undefined ? streamReasoning(ctx, agent, io.stderr) : undefined
+  // The cumulative budget aborts the active turn from its step boundary; the
+  // durable turn/end then records the hook cause, and this runner exits
+  // non-zero so a caller never reads a capped run as a completed one.
+  const budget = config.budgetTokens === undefined ? undefined : watchBudget(
+    ctx,
+    agent,
+    config.budgetTokens,
+    () => {
+      io.stderr.write(`dsh: model usage reached the run budget of ${String(config.budgetTokens)} tokens; stopping\n`)
+      agent.cancel({ kind: 'hook', reason: 'budget' })
+    },
+  )
   try {
     try {
       agent.followup(createUserMessage({
@@ -369,6 +396,13 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
       stopReasoning?.()
     }
     await sessions.flush(agent.session)
+    if (budget !== undefined && budget.exceeded()) {
+      const used = budget.usage()
+      io.stderr.write(
+        `dsh: run stopped by the token budget after ${String(used.totalTokens)} counted tokens`
+        + `${used.unknown ? ' (some steps reported no usage)' : ''}\n`,
+      )
+    }
     const outcome = summarize(agent.session, firstSeq)
     if (projection === undefined) io.stdout.write(outcome.text + '\n')
     else projection.finish(outcome.text)
@@ -377,6 +411,7 @@ async function run(ctx: Context, config: Config, io: HeadlessIo): Promise<void> 
     }
     io.exit(outcome.reason?.kind === 'completed' ? 0 : 1)
   } finally {
+    budget?.dispose()
     projection?.dispose()
   }
 }

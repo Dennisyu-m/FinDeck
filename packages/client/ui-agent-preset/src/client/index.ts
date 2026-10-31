@@ -134,7 +134,10 @@ export function apply(ctx: ClientContext): void {
     name: 'settings.section',
     id: 'agent-presets',
     order: 20,
-    label: () => ctx.locale.bind('settings.agentPreset')('nav'),
+    label: () => ctx.locale.bind('settings.agentPreset')('rail'),
+    icon: 'mask',
+    place: 'settings',
+    settingsOrder: 9,
     locale: 'settings.agentPreset',
     inject: sectionInjected,
   }, AgentPresetSection))

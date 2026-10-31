@@ -1,5 +1,5 @@
 ---
-description: "The scheduled-tasks page, the environment-and-components page, and the Help page of the FinDeck information architecture."
+description: "The session-reminders page, the environment-and-components page, and the Help page of the FinDeck information architecture."
 kind: "package-reference"
 ---
 
@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-`dsh-client-ui-pages` holds three first-class navigation entries of the FinDeck information architecture. Scheduled tasks renders every stored session's scheduled runs as a card wall grouped by task type — read off the [R11] binding header the task prompt carries — with a per-card pause/resume switch and direct deletion backed by the `scheduleControl` Remote, one status chip (paused / session closed / overdue / scheduled), and the copyable run templates behind the create button. Environment & components is the component download grid over the `componentCatalog` Remote: six installable runtime components, each row carrying its downloaded badge with version, estimated size, install location, prerequisites, and a download action, with the one running install job rendered as a live byte progress bar plus cancel. Help renders the quick-start path (connect a model, set up the data environment, ask a finance question), the modes-and-flows explainer, and the feature map that names each shipped capability with its entry point. Every page registers one `settings.section` row — id, order, localized label — so the sidebar page navigation picks it up with no shell change.
+`dsh-client-ui-pages` holds three first-class navigation entries of the FinDeck information architecture. Session reminders renders every stored session's reminders as a card wall grouped by reminder type — read off the [R11] binding header the reminder prompt carries — with a per-card pause/resume switch and direct deletion backed by the `scheduleControl` Remote, one status chip (paused / session closed / overdue / scheduled), and the copyable reminder templates behind the create button. Environment & components is the component download grid over the `componentCatalog` Remote: six installable runtime components, each row carrying its downloaded badge with version, estimated size, install location, prerequisites, and a download action, with the one running install job rendered as a live byte progress bar plus cancel. Help renders the quick-start path (connect a model, set up the data environment, ask a finance question), the modes-and-flows explainer, and the feature map that names each shipped capability with its entry point. Every page registers one `settings.section` row — id, order, localized label — so the sidebar page navigation picks it up with no shell change.
 
 ## Table of Contents
 

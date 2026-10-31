@@ -111,6 +111,9 @@ export function apply(ctx: Context, config: Config): void {
     onReplayDegrade: ({ provider, model, reason }) => {
       ctx.logger.warn(`llm-deepseek: unusable Messages replay state on assistant history for route "${provider}/${model}"; sending provider-neutral content (${reason})`)
     },
+    onExtensionsUnaccepted: ({ provider, model, error }) => {
+      ctx.logger.warn(`llm-deepseek: route "${provider}/${model}" request extension acceptance failed; contributors resend on a later request: %o`, error)
+    },
     resolveApiKey,
     resolveUserId,
     resolveAttachments: () => ctx.get('attachments'),

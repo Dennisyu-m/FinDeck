@@ -1,0 +1,156 @@
+# The dsh-desk bundle patch: the unattended desk-run composition.
+#
+# It layers over dsh-base + dsh-headless, so the one-shot runner and the
+# persistence stack come from those bundles and this layer only narrows what
+# the run may do. The desk permission is an execution fact, not prompt copy:
+# shell, filesystem writes, background asset runs, subagents, workflows, and
+# the tools that create research components are absent from this tree. What
+# remains can read the asset library, run a foreground asset verb, recheck a
+# thesis, load skills, run the red-team check, archive one report through
+# `findeck.desk`, and read the deterministic feedback summary.
+#
+# A patch replaces the targeted row's whole config, so every restated row
+# below carries the complete configuration it needs.
+
+- id: automation-runner
+  disabled: true
+
+- id: system-prompt
+  config:
+    personaSuffix: Your working directory is {{cwd}}.
+    personaPrefix: >-
+      You are FinDeck's unattended desk analyst, powered by the {{model}} model.
+      You run an existing value-desk task: deterministic signals have already been computed and are in the task
+      text. Interpret only the objects whose status says they moved; write "data not updated" for stale ones and
+      never invent a number. You may read the asset library, run an archived asset verb in the foreground,
+      recheck a thesis with thesis_mark, run rb_check, load skills, and archive exactly one four-section report
+      with desk_report. You may not create datasets, models, code, tools, or workbenches, and you may not run
+      shell commands. Start by calling desk_preferences, then follow the findeck-desk skill. Do not ask the user
+      anything: this run has no person present. Put what the user must decide into the report's decisions section.
+
+- id: agent-instructions
+  disabled: true
+
+- id: tool-bash
+  disabled: true
+
+- id: tool-pwsh
+  disabled: true
+
+- id: tool-fs
+  disabled: true
+
+- id: tool-fs-search
+  disabled: true
+
+- id: tool-str-replace-editor
+  disabled: true
+
+- id: tool-jobs
+  disabled: true
+
+- id: tool-web
+  disabled: true
+
+- id: tool-todo
+  disabled: true
+
+- id: tool-goal
+  disabled: true
+
+- id: command-goal
+  disabled: true
+
+- id: plan-mode
+  disabled: true
+
+- id: tool-memory
+  disabled: true
+
+- id: tool-roundtable
+  disabled: true
+
+- id: tool-subagent-control
+  disabled: true
+
+- id: tool-subagent-list-agents
+  disabled: true
+
+- id: tool-subagent
+  disabled: true
+
+- id: tool-subagent-fork
+  disabled: true
+
+- id: tool-cluster
+  disabled: true
+
+- id: workflow-ptc
+  disabled: true
+
+- id: tool-workflow
+  disabled: true
+
+- id: tool-ralph
+  disabled: true
+
+# Foreground library runs only: the detached entry would escape the one-shot
+# run's accounting and cancellation, so this composition does not register it.
+- id: tool-asset-library
+  config:
+    requireApproval: false
+    background: false
+    # Asset children run inside the composed sandbox, rooted at the asset
+    # library: a verb may update the library but cannot write the repository,
+    # the desk task directory, or the user's home.
+    sandbox: true
+
+# Rechecks are allowed; creating a new thesis is not.
+- id: tool-thesis
+  config:
+    allowWrite: false
+
+- id: approval
+  config:
+    policy: never
+
+- id: sandbox-policy
+  config:
+    mode: read-only
+    workspaceRoot: !!js process.cwd()
+
+- id: permission
+  config:
+    presets:
+      read-only:
+        sandbox: read-only
+        approval: ask
+      workspace-write:
+        sandbox: workspace-write
+        approval: ask
+      danger-full-access:
+        sandbox: danger-full-access
+        approval: never
+      desk:
+        sandbox: read-only
+        approval: never
+    defaultPreset: desk
+
+# The runner row's complete config: the task and run options still come from
+# the headless startup service, while the budget and per-request output cap
+# come from the desk runner's environment.
+- id: headless-runner
+  config:
+    task: !!js ctx.headlessStartup.task
+    sessionId: !!js ctx.headlessStartup.sessionId
+    json: !!js ctx.headlessStartup.json
+    budgetTokens: !!js Number(process.env.FINDECK_DESK_BUDGET_TOKENS ?? 0) || undefined
+    maxOutputTokens: !!js Number(process.env.FINDECK_DESK_MAX_OUTPUT_TOKENS ?? 0) || undefined
+
+- insert:
+    - id: tool-desk
+      name: '@deepseek-ai/dsh-tool-desk'
+      config:
+        # The report archive writes into the asset library; the same sandbox
+        # boundary applies, and an unavailable backend fails the tool closed.
+        sandbox: true

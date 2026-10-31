@@ -310,7 +310,7 @@ export class WorkspaceAnalyzer {
         }
         const aggregatePath = resolve(this.options.root, face === 'host' ? this.options.hostConfig : this.options.clientConfig)
         const aggregate = this.caches.config(aggregatePath)
-        const rootNames = [...new Set(registrations.flatMap(registration => registration.config.parsed.fileNames))]
+        const rootNames = programRootNames(registrations)
         const options: ts.CompilerOptions = {
           ...aggregate.parsed.options,
           composite: false,
@@ -416,7 +416,7 @@ export class WorkspaceAnalyzer {
     for (const registration of this.loadRegistrations()) {
       if (!this.options.faces.includes(registration.face)
         || (selected !== undefined && !selected.has(registration.name))) continue
-      for (const file of registration.config.parsed.fileNames) {
+      for (const file of faceProgramFiles(registration)) {
         const relativeFile = slash(relative(this.options.root, file))
         if (!existsSync(file)
           || !isWithin(realPath(file), join(registration.root, 'src'))
@@ -2601,6 +2601,35 @@ function mergeWorkspaceModels(models: readonly WorkspaceModel[]): WorkspaceModel
     })),
     crossFaceLinks: [...links.values()].sort(compareCrossFaceLinks),
   }
+}
+
+/**
+ * Root files for one face program.
+ * A dual-face package with a single tsconfig lists browser files under
+ * `src/client/` next to its host entry. Those files stay out of the host
+ * program roots; a host entry that imports one, such as a shared wire
+ * manifest, still brings that file in through the import.
+ * @param registrations - packages selected for this face program.
+ * @returns deduplicated root paths.
+ */
+function programRootNames(registrations: readonly PackageRegistration[]): string[] {
+  return [...new Set(registrations.flatMap(faceProgramFiles))]
+}
+
+/**
+ * Source files this registration contributes to its face program.
+ * @param registration - one package face.
+ * @returns the tsconfig file list, without browser-face files on the host face.
+ */
+function faceProgramFiles(registration: PackageRegistration): readonly string[] {
+  const files = registration.config.parsed.fileNames
+  if (registration.face !== 'host' || registration.exportSubpaths === undefined) return files
+  return files.filter(file => !isBrowserFaceSource(file))
+}
+
+/** Whether a path is browser-face source owned by `src/client/`. */
+function isBrowserFaceSource(file: string): boolean {
+  return file.replaceAll('\\', '/').includes('/src/client/')
 }
 
 function parseConfig(path: string): ParsedConfig {

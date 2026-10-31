@@ -61,6 +61,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   agents: 'core.md',
   approval: 'approval.md',
   attachments: 'attachment.md',
+  automationRunner: 'desk.md',
   shell: 'shell.md',
   shellEnv: 'shell.md',
   clientModules: 'client-modules.md',
@@ -71,6 +72,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   authorization: 'credentials.md',
   credentials: 'credentials.md',
   credentialsController: 'credentials.md',
+  desk: 'desk.md',
   settingsController: 'settings.md',
   directoryPicker: 'workspace.md',
   deepseekLlmApiExtensions: 'llm-streaming.md',
@@ -132,6 +134,7 @@ export const SERVICE_PAGE: Record<string, string> = {
   workspaceFiles: 'workspace.md',
   directoryPickerController: 'workspace.md',
   terminalController: 'terminal.md',
+  thesis: 'desk.md',
   workspaceChanges: 'deliverables.md',
   officeToPdf: 'office-to-pdf.md',
 }
@@ -191,6 +194,7 @@ export const SERVICE_WALK_EXEMPTIONS: Record<string, string> = {
   skillForge: 'client-side skill-authoring service — packages/client/ui-settings-skills/README.md owns the API',
   sidebarRight: 'client-side right-sidebar face service — packages/client/ui-sidebar-right/README.md owns the API',
   sidebarRightTabs: 'client-side right-sidebar tab registry — packages/client/ui-sidebar-right/README.md owns the API',
+  automationSwitchGroups: 'host value published for the patch gateway, not a service class — packages/client/ui-settings-automation/README.md owns the API',
 }
 
 /**
@@ -249,6 +253,8 @@ export const EVENT_WALK_EXEMPTIONS: Record<string, string> = {
   'slash/input-insert-text': 'client-face slash-input protocol — packages/client/ui-input-trigger/README.md owns the API',
   'slots/changed': 'client-face slot invalidation signal — packages/client/ui-renderer/README.md owns the API',
   'theme/change': 'client-face theme switch signal — packages/client/ui-theme/README.md owns the API',
+  'assets/open': 'client-face research-assets navigation — packages/client/ui-assets/README.md owns the API',
+  'assets/open-thesis': 'client-face research-assets navigation — packages/client/ui-assets/README.md owns the API',
 }
 
 /**
@@ -279,6 +285,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   MessageId: 'llm-streaming.md',
   ResumeAgentOptions: 'core.md',
   SettleReason: 'core.md',
+  ToolCallId: 'core.md',
   AdapterRegistrationHandle: 'llm-streaming.md',
   DirectoryRegistrationHandle: 'llm-streaming.md',
   DeepSeekLlmApiExtensionMap: 'llm-streaming.md',
@@ -629,6 +636,7 @@ export const LINK_MAP: Readonly<Record<string, string>> = {
   ResolvedCredential: 'credentials.md',
   AskUserQuestionAnswer: 'user-questions.md',
   AskUserQuestionRequest: 'user-questions.md',
+  TimedUserQuestionResult: 'user-questions.md',
   UserQuestionProvider: 'user-questions.md',
   WebFetchProvider: 'web.md',
   WebFetchRequest: 'web.md',
@@ -838,6 +846,30 @@ export const TYPE_LINK_EXEMPTIONS: Readonly<Record<string, string>> = {
   SpeechSnapshot: 'speech session snapshot is owned by packages/experimental/speech-to-text/README.md',
   SpeechSpec: 'resolved speech specification is owned by packages/experimental/speech-to-text/README.md',
   Transcript: 'speech transcript value is owned by packages/experimental/speech-to-text/README.md',
+  AutomationRunResult: 'pipeline run result is owned by packages/skill/automation-runner/README.md',
+  AutomationTaskSnapshot: 'scheduled task snapshot is owned by packages/skill/automation-runner/README.md',
+  DeskRun: 'desk run record is owned by packages/skill/automation-runner/README.md',
+  DeskRunOutcome: 'desk run outcome is owned by packages/skill/automation-runner/README.md',
+  DeskRunTrigger: 'desk run trigger is owned by packages/skill/automation-runner/README.md',
+  DeskTaskRegistration: 'desk task registration is owned by packages/skill/automation-runner/README.md',
+  PipelineFile: 'pipeline file record is owned by packages/skill/automation-runner/README.md',
+  AdoptThesisInput: 'thesis adoption input is owned by packages/skill/desk/README.md',
+  DecisionActionInput: 'desk decision update is owned by packages/skill/desk/README.md',
+  DeskDecisionView: 'desk decision view is owned by packages/skill/desk/README.md',
+  DeskFeedbackInput: 'desk feedback write is owned by packages/skill/desk/README.md',
+  DeskFeedbackRow: 'desk feedback row is owned by packages/skill/desk/README.md',
+  DeskListResult: 'desk task list is owned by packages/skill/desk/README.md',
+  DeskReportBrief: 'desk report follow-up seed is owned by packages/skill/desk/README.md',
+  DeskRunDetail: 'desk run detail is owned by packages/skill/desk/README.md',
+  DeskRunList: 'desk run list is owned by packages/skill/desk/README.md',
+  DeskRunQuery: 'desk run query is owned by packages/skill/desk/README.md',
+  DeskScorecard: 'desk scorecard is owned by packages/skill/desk/README.md',
+  DeskTaskSpec: 'desk task file is owned by packages/skill/desk/README.md',
+  DeskTaskView: 'desk task view is owned by packages/skill/desk/README.md',
+  DeskTemplate: 'desk task template is owned by packages/skill/desk/README.md',
+  ThesisRecord: 'thesis record is owned by packages/skill/thesis-registry/README.md',
+  ThesisScore: 'thesis score is owned by packages/skill/thesis-registry/README.md',
+  ThesisWriteInput: 'thesis write input is owned by packages/skill/thesis-registry/README.md',
 }
 
 /** Repository data policy consumed by the Cordis catalog projector. */

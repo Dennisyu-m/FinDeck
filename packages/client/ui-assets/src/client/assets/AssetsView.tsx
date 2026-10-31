@@ -62,6 +62,12 @@ export interface AssetsViewProps {
   readonly onSelect: (name: string) => void
   /** Open one asset's face with this verb spotlighted (the card's primary action). */
   readonly onAction: (name: string, verb: string) => void
+  /** Whether the multi-select Work entry is active. */
+  readonly selectMode: boolean
+  /** Asset names currently selected for a Work mode. */
+  readonly selected: readonly string[]
+  /** Toggle one asset's selection. */
+  readonly onToggleSelect: (name: string) => void
   readonly t: Translate
 }
 
@@ -170,18 +176,31 @@ function Toolbar({ assets, all, filter, onFilter, view, onView, sort, descending
  * dot, name, kind), one key metric when the manifest offers one, a one-line
  * description, and the primary verb's action button.
  */
-function AssetCard({ asset, onSelect, onAction, t }: {
+function AssetCard({ asset, onSelect, onAction, selectMode, selected, onToggleSelect, t }: {
   readonly asset: AssetLibraryAsset
   readonly onSelect: (name: string) => void
   readonly onAction: (name: string, verb: string) => void
+  readonly selectMode: boolean
+  readonly selected: boolean
+  readonly onToggleSelect: (name: string) => void
   readonly t: Translate
 }): ReactNode {
   const tone = freshnessTone(asset)
   const metric = keyMetricOf(asset)
   const primary = primaryVerbOf(asset.verbs)
   return (
-    <li className={css.gridCard} data-stale={asset.stale ? 'true' : undefined}>
+    <li className={css.gridCard} data-stale={asset.stale ? 'true' : undefined} data-selected={selected ? 'true' : undefined}>
       <span className={css.cardHead}>
+        {selectMode
+          ? (
+            <input
+              type="checkbox"
+              checked={selected}
+              aria-label={`${t('selectForWork')}: ${asset.name}`}
+              onChange={() => { onToggleSelect(asset.name) }}
+            />
+          )
+          : null}
         <span className={css.freshDot} data-tone={tone} title={tone === 'none' ? t('noFreshnessLabel') : undefined} />
         <button type="button" className={css.cardNameButton} title={asset.name} onClick={() => { onSelect(asset.name) }}>
           {asset.name}
@@ -240,12 +259,13 @@ function SortHeader({ by, label, sort, descending, onSort }: {
 }
 
 /** The compact table view. */
-function AssetTable({ assets, sort, descending, onSort, onSelect, t }: AssetsViewProps): ReactNode {
+function AssetTable({ assets, sort, descending, onSort, onSelect, selectMode, selected, onToggleSelect, t }: AssetsViewProps): ReactNode {
   return (
     <div className={css.listWrap}>
       <table className={css.list}>
         <thead>
           <tr>
+            {selectMode ? <th scope="col">{t('selectForWork')}</th> : null}
             <SortHeader by="name" label={t('sortByName')} sort={sort} descending={descending} onSort={onSort} />
             <th scope="col">{t('filterKind')}</th>
             <th scope="col">{t('filterOrigin')}</th>
@@ -262,7 +282,19 @@ function AssetTable({ assets, sort, descending, onSort, onSelect, t }: AssetsVie
         </thead>
         <tbody>
           {assets.map(asset => (
-            <tr key={asset.name} data-stale={asset.stale ? 'true' : undefined}>
+            <tr key={asset.name} data-stale={asset.stale ? 'true' : undefined} data-selected={selected.includes(asset.name) ? 'true' : undefined}>
+              {selectMode
+                ? (
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.includes(asset.name)}
+                      aria-label={`${t('selectForWork')}: ${asset.name}`}
+                      onChange={() => { onToggleSelect(asset.name) }}
+                    />
+                  </td>
+                )
+                : null}
               <td>
                 <button type="button" className={css.linkButton} title={asset.name} onClick={() => { onSelect(asset.name) }}>
                   {asset.name}
@@ -303,7 +335,16 @@ export function AssetsView(props: AssetsViewProps): ReactNode {
         ? (
           <ul className={css.grid}>
             {assets.map(asset => (
-              <AssetCard key={asset.name} asset={asset} onSelect={props.onSelect} onAction={props.onAction} t={t} />
+              <AssetCard
+                key={asset.name}
+                asset={asset}
+                onSelect={props.onSelect}
+                onAction={props.onAction}
+                selectMode={props.selectMode}
+                selected={props.selected.includes(asset.name)}
+                onToggleSelect={props.onToggleSelect}
+                t={t}
+              />
             ))}
           </ul>
         )

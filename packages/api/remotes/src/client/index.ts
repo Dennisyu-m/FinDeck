@@ -17,6 +17,7 @@ import permissionPresetsRemote from '@deepseek-ai/dsh-permission-presets/remote'
 import fileUploadsRemote from '@deepseek-ai/dsh-client-file-upload/remote'
 import sessionReferencesRemote from '@deepseek-ai/dsh-session-reference/remote'
 import subagentsRemote from '@deepseek-ai/dsh-subagent/remote'
+import userQuestionsRemote from '@deepseek-ai/dsh-user-questions/remote'
 import sessionRemote from '@deepseek-ai/dsh-api-session-controller/remote'
 import sessionsAdminRemote from '@deepseek-ai/dsh-api-sessions-admin-controller/remote'
 import workspaceRemote from '@deepseek-ai/dsh-api-workspace-controller/remote'
@@ -71,6 +72,9 @@ export type {
   DataEnvReport,
   ScheduleOverview,
   ScheduleOverviewEntry,
+  AutomationTaskList,
+  AutomationTaskView,
+  AutomationRunResultView,
   ScheduleControlRequest,
   ScheduleManagementResult,
   ScheduleRemovalResult,
@@ -88,8 +92,35 @@ export type {
   AssetOverviewReport,
   AssetOverviewThesis,
   AssetOverviewThesisScore,
+  CreateWorkRequest,
+  CreateWorkResult,
+  DeskBudgetWire,
+  DeskDecisionWire,
+  DeskFeedbackWire,
+  DeskInputWire,
+  DeskListValue,
+  DeskRefreshWire,
+  DeskReportBriefValue,
+  DeskReportSectionsWire,
+  DeskReportValue,
+  DeskRunDetailValue,
+  DeskRunListValue,
+  DeskRunQueryWire,
+  DeskRunWire,
+  DeskScorecardValue,
+  DeskScoreMetricWire,
+  DeskShowValue,
+  DeskSignalWire,
+  DeskTargetWire,
+  DeskTaskInputWire,
+  DeskTaskViewWire,
+  DeskTemplateWire,
+  DeskTriggerWire,
+  DeskUsageWire,
   RunVerbRequest,
   RunVerbResult,
+  WorkbenchListValue,
+  WorkbenchView,
 } from '@deepseek-ai/dsh-web-app/types'
 // Component-download vocabulary: the six installable runtime components, the
 // one install job's progress, and the event stream that carries it. The
@@ -138,6 +169,7 @@ export type {} from '@deepseek-ai/dsh-permission-presets/types'
 export type {} from '@deepseek-ai/dsh-settings/types'
 export type {} from '@deepseek-ai/dsh-user-approval/types'
 export type {} from '@deepseek-ai/dsh-user-questions/types'
+export type {} from '@deepseek-ai/dsh-user-questions/remote'
 export type {} from '@deepseek-ai/dsh-api-session-controller/types'
 
 /**
@@ -240,6 +272,7 @@ export async function apply(ctx: Context): Promise<() => Promise<void>> {
       pluginInventoryRemote, pluginPatchRemote, roundtableRemote, messageFeedbackRemote, permissionPresetsRemote,
       fileUploadsRemote, sessionReferencesRemote,
       subagentsRemote, sessionRemote, sessionsAdminRemote, workspaceRemote, workspaceFilesRemote, terminalRemote,
+      userQuestionsRemote,
     ]) {
       disposers.push(await ctx.remote.$mount(contribution))
     }

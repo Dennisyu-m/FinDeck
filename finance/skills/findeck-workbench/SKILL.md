@@ -55,9 +55,10 @@ finance/python/.venv/Scripts/python.exe -m findeck.workbench list     # 有哪�
 finance/python/.venv/Scripts/python.exe -m findeck.workbench validate finance/workbenches/<name>.yaml
 ```
 
-定义放 `finance/workbenches/<name>.yaml`，校验器是 `finance/python/findeck/workbench.py`
-（与 pipeline 同驻）。**拿不到 brief 就不要凭记忆猜资产名和路径**——用 `asset_search` 检索库，
-或直接读 brief。
+随产品交付的定义放 `finance/workbenches/<name>.yaml`；用户在资产页多选资产创建的定义放
+`<家目录>/workbenches/<name>.yaml`（`FINDECK_WORKBENCH_DIR` 可改），同名时用户定义优先。
+校验器是 `finance/python/findeck/workbench.py`（与 pipeline 同驻）。**拿不到 brief 就不要凭记忆
+猜资产名和路径**——用 `asset_search` 检索库，或直接读 brief。
 
 ## 3. 硬纪律（Work 模式会话必须遵守）
 

@@ -175,7 +175,7 @@ Call `asset_list` for validation metrics and dependencies, `asset_show` to inspe
 - **无流式或部分结果**——`asset_run` 是批处理：采集输出有上限，溢出尾巴不进入工具结果。
 - **目录是整表替换**——归档或删除一个资产就重发全部条目；摘要机制保证未变化的库零成本。
 - **模型资产必须附带暴露 `predict` 的可运行 `.py`**——纯权重不可执行；研究 skill 中的归档纪律拥有该契约。
-- **`asset_run_bg` 不报告完成**——它只回答被接受的 run id 与记录路径，从不回答结果；想拿回结果的调用方需组合圆桌引擎（由它在回合边界跟读记录），或自己去读 `<assetDir>/runs/<run_id>.json`。记录路径按本包的 `assetDir` 拼出，因此把 Python 侧 `FINDECK_ASSET_DIR` 指到别的根的部署会拼错。它没有审批接缝是刻意的：该工具只提交后台工作，调用时根本还没有结果，它能跑什么由库暴露的资产 verb 界定。
+- **`asset_run_bg` 不报告完成**——它只回答被接受的 run id 与记录路径，从不回答结果；想拿回结果的调用方需组合圆桌引擎（由它在回合边界跟读记录），或自己去读 `<assetDir>/runs/<run_id>.json`。记录路径按本包的 `assetDir` 拼出，并且每次启动金融 venv 都会把 `FINDECK_ASSET_DIR` 设成同一个绝对根，覆盖环境里已有的值。它没有审批接缝是刻意的：该工具只提交后台工作，调用时根本还没有结果，它能跑什么由库暴露的资产 verb 界定。
 
 <a id="dev-note"></a>
 ### 开发备注

@@ -49,6 +49,7 @@ One page per subsystem of FinDeck: what it is, the data structures it moves, and
 | [invariants.md](invariants.md) | the runtime-invariant registry: selection `Config`, `InvariantInstaller`/`InvariantFailure`, the empty-companion contract |
 | [web-server.md](web-server.md) | the HTTP carrier: `WebRouteKind`/`WebRoute`, match order, the claimable fallback seat, index taps |
 | [webhook.md](webhook.md) | authenticated provider deliveries, arbitrary programmatic rules, and fire-and-forget Workspace Session creation |
+| [desk.md](desk.md) | the value-desk host services: shared automation scheduling, desk task management, and the thesis registry |
 | [mcp.md](mcp.md) | the MCP group: per-server `mcp-client` connections and server-qualified tool names, the scoped `ctx.mcpResources` resource seam with its three shared tools, and Remote server administration through `ctx.mcpAdmin` |
 | [voice-input.md](voice-input.md) | experimental speech recognition: the `ctx.speechToText` provider registry and `ctx.speechController` Remote face, provider selection, preparation, and browser/Host ownership |
 | [storage.md](storage.md) | the storage subsystem: the backend contract (`StorageBackend`), `StorageForms`, `DomainSpec`/`Domain`, `domain/changed` |

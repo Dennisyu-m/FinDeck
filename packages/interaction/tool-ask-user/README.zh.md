@@ -9,11 +9,12 @@ kind: "package-reference"
 
 ## 概述
 
-`dsh-tool-ask-user` 为模型提供一个工具——`ask_user_question`——用于在需要确认、选择结果或缺失的信息才能继续时，向用户提出简明问题。工具会暂停，直到首个作用域 answerer 接受请求，然后把回答作为普通工具结果送回 agent loop（智能体循环），因此循环机制没有任何变化。工具返回规范的 `{ answers: [...] }` 结构，并以紧凑的 JSON 文本形式呈现。它自身不渲染 UI，也不了解输入的收集方式；Web Client 通过 Remote Events 提供 answerer。运行时中归属于其他 agent 的子级不能向用户提问；它必须在最终结果中包含尚未解决的问题。
+`dsh-tool-ask-user` 为模型提供一个工具——`ask_user_question`——用于在需要确认、选择结果或缺失的信息才能继续时，向用户提出简明问题。工具会暂停，直到首个作用域 answerer 接受请求，然后把回答作为普通工具结果送回 agent loop（智能体循环），因此循环机制没有任何变化。工具返回规范的 `{ answers: [...] }` 结构，并以紧凑的 JSON 文本形式呈现。`Config.mode: 'timed'` 会把它换成需显式开启的计时定义：前台等待由 `Config.timeout` 秒数限定，窗口关闭时工具返回 `{ pending: true, callId, message }`，于是 agent 继续工作，而问题仍可经 `userQuestions` Session 投影回答。它自身不渲染 UI，也不了解输入的收集方式；Web Client 通过 Remote Events 提供 answerer。运行时中归属于其他 agent 的子级不能向用户提问；它必须在最终结果中包含尚未解决的问题。
 
 ## 目录
 
 - [使用本包](#use-this-package)
+- [配置](#configuration)
 - [理解实现](#understand-the-implementation)
 - [进一步探索](#further-exploration)
 - [模型体验](#model-experience)
@@ -26,6 +27,23 @@ kind: "package-reference"
 ## 使用本包
 
 凡模型应当能够暂停等待人类决定的场景，都可组合此插件：它提供 `ask_user_question` 工具，并且需要带有接受作用域请求的 answerer 的 `ctx.userQuestions` seam。没有 answerer 接受时，工具调用会以错误失败，而不是降级。
+
+### 配置
+
+| 字段 | 默认值 | 含义 |
+|---|---|---|
+| `mode` | `'legacy'` | `'legacy'` 注册阻塞式工具；`'timed'` 注册有界等待的工具。 |
+| `timeout` | `120` | 未自带 `timeout` 参数的计时调用的前台等待秒数。`-1` 表示无限等待。 |
+
+计时模式需显式开启：随包发布的 preset 组合的是默认 legacy 行，因此在部署声明 `mode: timed` 之前，所有既有 Session 都保持阻塞行为。
+
+```yaml
+- id: tool-ask-user
+  name: '@deepseek-ai/dsh-tool-ask-user'
+  config:
+    mode: timed
+    timeout: 120
+```
 
 ### 何时调用该工具
 
@@ -51,13 +69,15 @@ kind: "package-reference"
 
 工具为每个问题返回一个回答对象：`selected` 保存选中的选项标签，`custom` 携带自由填写的回答——对多选题补充 `selected`，对单选题覆盖它。Native 渲染器保留紧凑的 JSON 文本形式。
 
+计时模式下的模型还可以为单次调用传入 `timeout`（秒），覆盖该调用的配置默认值；`-1` 表示无限等待。窗口关闭的调用返回 `{ pending: true, callId, message }`。`message` 字段说明用户仍可回答，且回复会作为指名该调用的 `answer_to_pending_question` 用户消息到达；它是结果值自身的字段而非旁白，因为已记录的结果文本会被 `userQuestions` 投影与 transcript 行按同一个 JSON 对象读回。
+
 ```json
 { "answers": [{ "id": "cleanup", "selected": ["Yes, delete them (Recommended)"] }] }
 ```
 
 ### 调用何时失败
 
-工具调用会阻塞到用户作答，并且只能通过当前轮次的信号取消。没有 answerer 接受、调用被中止、或调用方不是确切的存活运行时根，都会以模型在工具结果中看到的错误结算——最值得注意的是，归属于另一个 agent 的存活子级会被拒绝（`DELEGATED_CALLER`），必须在最终结果中包含尚未解决的问题或决定。
+legacy 模式下，工具调用会阻塞到用户作答，并且只能通过当前轮次的信号取消。计时调用另有两类失败：超出 `-1` 或 1–2147483 秒的 `timeout` 会在注册定义或调用开始时被拒绝，同一次调用内重复的问题 id 会在请求到达 seam 之前被拒绝。没有 answerer 接受、调用被中止、或调用方不是确切的存活运行时根，都会以模型在工具结果中看到的错误结算——最值得注意的是，归属于另一个 agent 的存活子级会被拒绝（`DELEGATED_CALLER`），必须在最终结果中包含尚未解决的问题或决定。
 
 -----
 
@@ -138,7 +158,8 @@ kind: "package-reference"
 
 这些限制说明该工具何时不合适。它们是当前包约束，不是 UI 积压事项。
 
-- **待处理问题会阻塞工具调用，直至用户作答**：该工具未声明 `timeout-policy` 预算；取消仅沿用当前轮次的 `exec.signal`。
+- **默认定义会阻塞工具调用，直至用户作答**：legacy 工具未声明 `timeout-policy` 预算，仅通过当前轮次的 `exec.signal` 取消；`mode: timed` 是需显式开启的有界替代方案。
+- **计时问题需要 Client 保持可回答**：没有已连接的回答者时前台等待仍会到期、agent 仍会继续，但在持有 `userQuestions` 投影的 UI 连接之前，没有途径投递迟到回复。
 - **运行时中归属于其他 agent 的 subagent 不能向用户提问**：`ask_user_question` 会以 `DELEGATED_CALLER` 拒绝归属于另一个 agent 的存活子级；该子级必须在最终结果中包含尚未解决的问题或决定。持久谱系不能决定这一边界，因此带有谱系的会话恢复为运行时根后可以正常提问。
 - **Native 回答渲染为 JSON 文本**：规范值仍为结构化数据，但模型侧结果使用紧凑 JSON，而非更丰富的内容块词汇。
 

@@ -227,16 +227,41 @@ flowchart LR
   pkg_workspace_changes["workspace-changes"]
   svc_workspaceChanges["ctx.workspaceChanges<br/>Turn change recorder"]
   svc_officeToPdf["ctx.officeToPdf<br/>Office-to-PDF conversion provider"]
+  pkg_automation_runner["automation-runner"]
+  svc_automationRunner["ctx.automationRunner<br/>Shared pipeline and desk scheduler"]
+  pkg_desk["desk"]
+  svc_desk["ctx.desk<br/>Desk task, run, and feedback service"]
+  pkg_tool_desk["tool-desk"]
+  pkg_client_ui_desk["client-ui-desk"]
+  pkg_thesis["thesis"]
+  svc_thesis["ctx.thesis<br/>Thesis registry"]
+  pkg_tool_thesis["tool-thesis"]
+  pkg_api_mcp_controller["api-mcp-controller"]
+  svc_mcpAdmin["ctx.mcpAdmin<br/>MCP server administration"]
+  pkg_mcp_resources["mcp-resources"]
+  svc_mcpResources["ctx.mcpResources<br/>MCP resource tools"]
+  pkg_api_sessions_admin_controller["api-sessions-admin-controller"]
+  svc_sessionsAdmin["ctx.sessionsAdmin<br/>Stored-session administration"]
+  pkg_api_skills_controller["api-skills-controller"]
+  svc_skillsAdmin["ctx.skillsAdmin<br/>Skill inventory administration"]
+  pkg_experimental_speech_to_text["experimental-speech-to-text"]
+  svc_speechToText["ctx.speechToText<br/>Speech recognizer registry"]
+  pkg_experimental_speech_to_text_sensevoice["experimental-speech-to-text-sensevoice"]
+  pkg_experimental_api_speech_to_text["experimental-api-speech-to-text"]
+  svc_speechController["ctx.speechController<br/>Speech Remote controller"]
   pkg_agent --> svc_agents
   pkg_agent_default_model --> svc_agentDefaultModel
   pkg_agent_loop --> svc_agentLoop
   pkg_agent_presets --> svc_agentPresets
   pkg_api_gateway --> svc_typertGateway
+  pkg_api_mcp_controller --> svc_mcpAdmin
   pkg_api_session_controller --> svc_sessionController
   pkg_api_session_controller --> svc_sessionFileReferences
   pkg_api_session_controller --> svc_sessionSkillCatalog
+  pkg_api_sessions_admin_controller --> svc_sessionsAdmin
   pkg_api_settings_controller --> svc_credentialsController
   pkg_api_settings_controller --> svc_settingsController
+  pkg_api_skills_controller --> svc_skillsAdmin
   pkg_api_terminal_controller --> svc_terminalController
   pkg_api_workspace_controller --> svc_directoryPickerController
   pkg_api_workspace_controller --> svc_workspaceController
@@ -244,6 +269,7 @@ flowchart LR
   pkg_attachment --> svc_attachments
   pkg_attachment_local --> svc_attachments
   pkg_authorization --> svc_authorization
+  pkg_automation_runner --> svc_automationRunner
   pkg_bash_local --> svc_shell
   pkg_bash_sandbox --> svc_shell
   pkg_client_file_upload --> svc_fileUploads
@@ -257,8 +283,12 @@ flowchart LR
   pkg_credentials --> svc_credentials
   pkg_credentials_local --> svc_credentials
   pkg_deepseek_llm_api_extensions --> svc_deepseekLlmApiExtensions
+  pkg_desk --> svc_desk
   pkg_experimental_agent_team --> svc_agentTeams
+  pkg_experimental_api_speech_to_text --> svc_speechController
   pkg_experimental_ptc_runtime_python --> svc_ptcRuntime
+  pkg_experimental_speech_to_text --> svc_speechToText
+  pkg_experimental_speech_to_text_sensevoice --> svc_speechToText
   pkg_file_reference --> svc_fileReferences
   pkg_file_reference_local --> svc_fileReferences
   pkg_fs --> svc_fs
@@ -279,6 +309,7 @@ flowchart LR
   pkg_llm_replay --> svc_llm
   pkg_lsp --> svc_lsp
   pkg_lsp_stdio --> svc_lsp
+  pkg_mcp_resources --> svc_mcpResources
   pkg_message_feedback --> svc_messageFeedback
   pkg_mode --> svc_modes
   pkg_office_to_pdf --> svc_officeToPdf
@@ -330,6 +361,7 @@ flowchart LR
   pkg_system_prompt --> svc_systemPrompt
   pkg_terminal --> svc_terminals
   pkg_terminal_bash --> svc_terminals
+  pkg_thesis --> svc_thesis
   pkg_token_meter --> svc_tokenMeter
   pkg_tool_subagent --> svc_subagentModelSelection
   pkg_tools --> svc_tools
@@ -363,6 +395,7 @@ flowchart LR
   svc_attachments --> pkg_llm_pi_ai
   svc_attachments --> pkg_tool_fs
   svc_authorization --> pkg_llm_pi_ai
+  svc_automationRunner --> pkg_desk
   svc_clientModules --> pkg_client_hmr
   svc_compaction --> pkg_compaction_basic
   svc_cordisInspect --> pkg_tool_cordis
@@ -370,6 +403,8 @@ flowchart LR
   svc_credentials --> pkg_llm_deepseek
   svc_credentials --> pkg_llm_pi_ai
   svc_deepseekLlmApiExtensions --> pkg_llm_deepseek
+  svc_desk --> pkg_client_ui_desk
+  svc_desk --> pkg_tool_desk
   svc_directoryPicker --> pkg_api_workspace_controller
   svc_dynamicCordisRunner --> pkg_tool_cordis
   svc_fileReferences --> pkg_api_session_controller
@@ -427,6 +462,7 @@ flowchart LR
   svc_shellEnv --> pkg_tool_bash
   svc_shellEnv --> pkg_tool_pwsh
   svc_skills --> pkg_tool_skill
+  svc_speechToText --> pkg_experimental_api_speech_to_text
   svc_spillStore --> pkg_spill_policy
   svc_storage --> pkg_storage_domain
   svc_storageDomain --> pkg_message_feedback
@@ -448,6 +484,8 @@ flowchart LR
   svc_systemPrompt --> pkg_tool_web
   svc_systemPrompt --> pkg_tools
   svc_terminals --> pkg_tool_terminal
+  svc_thesis --> pkg_desk
+  svc_thesis --> pkg_tool_thesis
   svc_tokenMeter --> pkg_compaction_basic
   svc_toolResultPruner --> pkg_compaction_basic
   svc_tools --> pkg_agent_loop
@@ -554,5 +592,14 @@ flowchart LR
 | `ctx.terminalController` | `core` | [`api-terminal-controller`](../packages/api/terminal-controller) | - | - | - | Owns interactive user terminals, their bounded screen recovery, and reconnect-safe control across the generated Remote namespace; terminal output stays outside the Agent transcript. |
 | `ctx.workspaceChanges` | `core` | [`workspace-changes`](../packages/deliverables/workspace-changes) | - | `ui-deliverables` | - | Snapshots the working tree at turn boundaries, captures whole files around file-tool edits, and serves the summaries and per-file comparisons of live Sessions. |
 | `ctx.officeToPdf` | `seam` | [`office-to-pdf`](../packages/document/office-to-pdf) | - | - | - | Converts authorized Office sources with the LibreOffice kit under one admission queue and generation-scoped cache, and serves browser renders through the generated Remote namespace. |
+| `ctx.automationRunner` | `core` | [`automation-runner`](../packages/skill/automation-runner) | - | [`desk`](../packages/skill/desk) | - | Owns one host timer for pipeline files and desk tasks. Cancel aborts the current child and records status cancelled after that child exits; a non-zero exit without cancel stays failed or timeout. |
+| `ctx.desk` | `core` | [`desk`](../packages/skill/desk) | - | [`tool-desk`](../packages/skill/tool-desk), [`client-ui-desk`](../packages/client/ui-desk) | - | The single writer for desk task files, run records, feedback, decisions, and the scorecard. The page and the desk tools call this service. |
+| `ctx.thesis` | `core` | [`thesis`](../packages/skill/thesis-registry) | - | [`tool-thesis`](../packages/skill/tool-thesis), [`desk`](../packages/skill/desk) | - | Stores one YAML manifest per thesis and derives open, hit, miss, overdue, and the registry score. |
+| `ctx.mcpAdmin` | `core` | [`api-mcp-controller`](../packages/api/mcp-controller) | - | - | - | Owns the durable mcp settings namespace and mounts one mcp-client instance per enabled server. |
+| `ctx.mcpResources` | `core` | [`mcp-resources`](../packages/mcp/mcp-resources) | - | - | - | Discovers and reads MCP resources through shared tools that require an explicit server name. |
+| `ctx.sessionsAdmin` | `core` | [`api-sessions-admin-controller`](../packages/api/sessions-admin-controller) | - | - | - | Lists stored sessions from the persistence store, including size and whole-log counts, and removes one stored session. |
+| `ctx.skillsAdmin` | `core` | [`api-skills-controller`](../packages/api/skills-controller) | - | - | - | Owns the skill inventory, the durable disable list, user-skill documents, and the gallery and forge operations. |
+| `ctx.speechToText` | `seam` | [`experimental-speech-to-text`](../packages/experimental/speech-to-text) | [`experimental-speech-to-text-sensevoice`](../packages/experimental/speech-to-text-sensevoice) | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | Selects named speech recognizers. Consumers resolve a request before execution; providers register independently. |
+| `ctx.speechController` | `core` | [`experimental-api-speech-to-text`](../packages/experimental/api-speech-to-text) | - | - | - | Exposes provider discovery and one complete-recording transcription call on the authenticated Web Remote. |
 
 Maintenance mode: hybrid: services are discovered from Cordis declarations; interface/implementation/consumer roles are classified in `scripts/gen-doc-graphs.ts` with a completeness guard.

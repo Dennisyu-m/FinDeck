@@ -527,6 +527,29 @@ export type InjectParams<K extends keyof SlotMap & string, H> =
 export type SlotLabel = string | (() => string)
 
 /**
+ * Where a `settings.section` is listed in shell chrome.
+ * `both` is the plugins page: it is a top-nav item and a settings-rail item.
+ * Omit `place` for a page the shell reaches through its own chrome
+ * (the roundtable tab).
+ */
+export type SettingsSectionPlace = 'nav' | 'settings' | 'both'
+
+/** Chrome fields only `settings.section` registrations carry. */
+type SettingsSectionChrome<K extends string> = K extends 'settings.section' ? {
+  /**
+   * Glyph name drawn by the shell (`ui-shell` IconName, the 24×24 line set).
+   * A string, not a ReactNode. An unknown name draws no glyph.
+   */
+  icon?: string
+  /** Which shell list shows this section. */
+  place?: SettingsSectionPlace
+  /** Position in the top nav, ascending. Used when `place` includes the nav. */
+  navOrder?: number
+  /** Position in the settings rail, ascending. Used when `place` includes the rail. */
+  settingsOrder?: number
+} : {}
+
+/**
  * Kind shape fields carried in register options (keyed dispatch key; list
  * id/order/label; chain select/priority; non-chain priority = cell shadowing rank).
  */
@@ -535,7 +558,8 @@ export type KindOptions<
   EntryKey extends EntryKeyOf<K>,
   M = never,
 > =
-  SlotMap[K]['kind'] extends 'keyed' ? {
+  SettingsSectionChrome<K> &
+  (SlotMap[K]['kind'] extends 'keyed' ? {
     key: EntryKey
     /** Cell shadowing rank (ascending, default 0, lowest renders; same key + same priority throws — see {@link SlotCore.register}). */
     priority?: number
@@ -559,7 +583,7 @@ export type KindOptions<
            * same-priority second registration throws — see {@link SlotCore.register}).
            */
           priority?: number
-        }
+        })
 
 /**
  * Compile-time presence check: an entry declaring children MUST consume
@@ -609,7 +633,17 @@ type BaseOptions<
  */
 export interface StoredEntry {
   component: unknown
-  options: { key?: string; id?: string; order?: number; label?: SlotLabel; priority?: number }
+  options: {
+    key?: string
+    id?: string
+    order?: number
+    label?: SlotLabel
+    priority?: number
+    icon?: string
+    place?: SettingsSectionPlace
+    navOrder?: number
+    settingsOrder?: number
+  }
   /** Chain routing selector (type-erased like `inject`; present exactly on chain-slot entries). */
   select?: ((owner: never) => unknown) | undefined
   /** Registrant business face; positional params derive from the declaration (sessionId?, actions?). */
@@ -647,6 +681,10 @@ interface ErasedOptions {
   id?: string | undefined
   order?: number | undefined
   label?: SlotLabel | undefined
+  icon?: string | undefined
+  place?: SettingsSectionPlace | undefined
+  navOrder?: number | undefined
+  settingsOrder?: number | undefined
   select?: ((owner: never) => unknown) | undefined
   priority?: number | undefined
   children?: Record<string, SlotSpec<SlotEntryDef>> | undefined
@@ -902,6 +940,10 @@ export class SlotCore {
         ...(options.id !== undefined ? { id: options.id } : {}),
         ...(options.order !== undefined ? { order: options.order } : {}),
         ...(options.label !== undefined ? { label: options.label } : {}),
+        ...(options.icon !== undefined ? { icon: options.icon } : {}),
+        ...(options.place !== undefined ? { place: options.place } : {}),
+        ...(options.navOrder !== undefined ? { navOrder: options.navOrder } : {}),
+        ...(options.settingsOrder !== undefined ? { settingsOrder: options.settingsOrder } : {}),
         ...(options.priority !== undefined ? { priority: options.priority } : {}),
       },
       ...(options.select !== undefined ? { select: options.select } : {}),

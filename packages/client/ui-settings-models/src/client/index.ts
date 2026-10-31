@@ -133,6 +133,9 @@ export function apply(ctx: ClientContext): void {
     id: 'models',
     order: 10,
     label: () => t('nav'),
+    icon: 'chip',
+    place: 'settings',
+    settingsOrder: 0,
     inject: injected,
     children: {
       'settings.models.provider-card': { kind: 'keyed', scope: 'root' },

@@ -6,11 +6,11 @@ This directory holds everything FinDeck layers on top of the upstream harness, i
 
 | Path | Contents |
 |---|---|
-| `skills/` | The AI's "manuals" (13), mounted into every session |
+| `skills/` | The AI's "manuals" (14), mounted into every session |
 | `pipelines/` | Scheduled asset pipelines (`<name>.yaml` definitions + step scripts): `daily-refresh` (panel → model → report) and `weekly-healthcheck` (asset health report) |
 | `face-spec/` | Asset-face spec: `face.schema.json` + `validate_face.py` + examples, and `verb-bridge.md`, the protocol the face uses to run library verbs |
-| `workbenches/` | Work-mode definitions (`<name>.yaml`): a named asset set plus its run conventions, read by `python -m findeck.workbench` (`list`/`show`/`validate`) |
-| `python/findeck/` | Built-in toolkit modules: `assets` (global asset library), `background` (detached run records shared by the `verb_bridge` and `pipeline` CLIs), `charts` (chart factory), `pipeline` (pipeline.yaml validator/executor), `quickmodels` (unified modeling), `snapshot` (data snapshots), `verb_bridge` (face verb execution bridge), `workbench` (workbench.yaml validator and brief generator) |
+| `workbenches/` | Shipped Work-mode definitions (`<name>.yaml`): a named asset set plus its run conventions, read by `python -m findeck.workbench` (`list`/`show`/`validate`); user-created definitions live in `<harness home>/workbenches/` and shadow a shipped name |
+| `python/findeck/` | Built-in toolkit modules: `assets` (global asset library), `background` (detached run records shared by the `verb_bridge` and `pipeline` CLIs), `charts` (chart factory), `desk` (desk-task yaml validator), `pipeline` (pipeline.yaml validator/executor), `quickmodels` (unified modeling), `snapshot` (data snapshots), `verb_bridge` (face verb execution bridge), `workbench` (workbench.yaml validator and brief generator) |
 | `python/.venv/` | Data environment (created by the setup scripts; registers the findeck package via `.pth`) |
 | `python/requirements-data.txt` | Preinstalled list, with upper bounds (data + sklearn/lightgbm/statsmodels) |
 | `python/setup-env.ps1` / `.sh` | Idempotent bootstrap (Tsinghua mirror first, `FD_PIP_INDEX` overrides) |
@@ -45,9 +45,10 @@ This directory holds everything FinDeck layers on top of the upstream harness, i
 | `findeck-portfolio` | Portfolio construction: equal-weight/min-variance/risk-parity/MVO |
 | `findeck-macro-playbook` | Macro playbooks: Merrill clock / rate transmission / credit cycle / policy |
 | `findeck-python-env` | Data environment manual (paths/mirrors/caches/troubleshooting) |
-| `findeck-pipeline` | Asset pipelines: `pipeline.yaml` format, step marker protocol, manual run + `schedule_create` cron wiring, failure semantics |
+| `findeck-pipeline` | Asset pipelines: `pipeline.yaml` format, step marker protocol, manual run, automation-runner scheduling from the yaml trigger, failure semantics |
 | `findeck-asset-face` | Generating an asset face: the 8-component vocabulary, per-kind "good face" rules, storage + manifest declaration, validator gate |
 | `findeck-workbench` | Work-mode operation: the `workbench.yaml` format, the opening asset brief, and the run-and-report discipline |
+| `findeck-desk` | Value-desk run discipline: read the deterministic signal table, leave the four-section report, and never exceed the execution permission |
 
 ## Data environment
 

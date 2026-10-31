@@ -46,8 +46,16 @@ The task and run options are supplied through three settings:
 | `task` | stdin | The task text; stdin supplies it when omitted or `-` |
 | `sessionId` | `session-<uuid>` | Exact Session identity to adopt; an unknown id fails |
 | `json` | `false` | Project the run as newline-delimited events on stdout |
+| `budgetTokens` | none | Cumulative input-plus-output token cap for the whole run |
+| `maxOutputTokens` | none | Per-request output cap; not the run budget |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-headless) is the exhaustive source for every accepted field and its JSDoc.
+
+### Run budget
+
+`budgetTokens` counts provider-reported input plus output tokens across completed steps; cache reads and writes stay separate items rather than being added twice. At the step boundary that reaches the cap the runner cancels the active turn with the `hook` cause `budget`, flushes the Session, and exits non-zero, so a caller never reads a capped run as completed. A step that reports no usage makes the running total incomplete; the runner keeps counting observed usage, says so on stderr, and still stops at the cap. `maxOutputTokens` bounds one model response only.
+
+The `desk` bundle sets both fields from `FINDECK_DESK_BUDGET_TOKENS` and `FINDECK_DESK_MAX_OUTPUT_TOKENS`, which the host runner supplies per task.
 
 ### Choosing the session identity
 
@@ -93,6 +101,7 @@ A completed final `turn/end` exits 0; any other outcome — aborted, error, or n
 |---|---|
 | [`src/index.ts`](src/index.ts) | The `headless-runner` plugin: run flow, session resolution, output contract, exit mapping |
 | [`src/startup.ts`](src/startup.ts) | The `headless-startup` provider: task positional, `--session-id`, `--json`, and `--help` |
+| [`src/budget.ts`](src/budget.ts) | Cumulative usage folding and the cancel-at-cap request |
 | [`src/json-stream.ts`](src/json-stream.ts) | The `--json` projection: event vocabulary, commit-point emission, string bounding |
 | [`cordis.patch.yml`](cordis.patch.yml) | The one-shot patch over `dsh-base` |
 | — | No runtime invariant companion is published; the runner's observable contract (provider reasoning on stderr, final text on stdout, exit code by turn-end reason) is process-level and owned by the launcher e2e; it registers nothing and holds no mutable relation to audit inside the tree. |

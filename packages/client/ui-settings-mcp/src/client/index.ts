@@ -59,6 +59,9 @@ export function apply(ctx: ClientContext): void {
     id: 'mcp',
     order: 26,
     label: () => t('nav'),
+    icon: 'plug',
+    place: 'settings',
+    settingsOrder: 4,
     inject: (): McpSectionInjected => ({
       controller,
       hooks: { snapshot: controller.store },

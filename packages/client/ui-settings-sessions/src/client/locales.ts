@@ -39,7 +39,7 @@ export type SessionsKey = keyof typeof en
 
 /** Chinese strings (same keys as {@link en}). */
 export const zh: { [Key in keyof typeof en]: string } = {
-  nav: '会话',
+  nav: '会话管理',
   title: '会话',
   intro: '此服务器上存储的全部会话。在这里重命名或删除会直接改动已存储的会话本身，而不仅是本页面。',
   refresh: '刷新',

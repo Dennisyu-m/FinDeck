@@ -2,5 +2,5 @@
 # side as of the last confirmed-consistent state. Both languages carry equal authority;
 # after editing either side, bring the other along and update both hashes by hand
 # (`git hash-object <path>`); nothing verifies this record.
-2026-08-08-windows-acl-restricted-token-sandbox.md: f01c2f18cde78a561ccdd289a117f25916550ea4
-2026-08-08-windows-acl-restricted-token-sandbox.zh.md: 99e8a27f72544d01adb97d86c8397c562b171458
+2026-08-08-windows-acl-restricted-token-sandbox.md: 1cc26741ea018540cc109483691c3ca11dcc1f28
+2026-08-08-windows-acl-restricted-token-sandbox.zh.md: 3cd975f68d728df00e9ff0fe83d4915ac6973221

@@ -30,6 +30,7 @@ The skill group gives agents and users access to reusable, task-specific instruc
 | [`skill-office/`](skill-office/README.md) | Bundles Word, PowerPoint, and Excel workflows with the shared read-only OOXML structural checker | registers on `ctx.skills` |
 | [`tool-skill/`](tool-skill/README.md) | Publishes the session skill catalog and the model-facing `skill` loader tool | registers on `ctx.tools` |
 | [`tool-asset-library/`](tool-asset-library/README.md) | Model-facing FinDeck asset-library tools: discovery, inspection, and in-venv execution of archived research assets | registers on `ctx.tools` |
+| [`automation-runner/`](automation-runner/README.md) | Host scheduler for automation tasks. Runs `pipeline` tasks on a cron or interval by spawning the finance venv | `ctx.automationRunner` |
 | [`roundtable/`](roundtable/README.md) | Host roundtable capability: the settings-backed speaker roster and the room engine driving one shared transcript speaker by speaker | `ctx.remote.roundtable` |
 | [`tool-roundtable/`](tool-roundtable/README.md) | Exposes `roundtable_list` and `roundtable_read` over the durable roundtable transcript archive | registers on `ctx.tools` |
 | [`redblue/`](redblue/README.md) | Red/blue adversarial review: editable red and blue prompts under the `rbcheck` namespace, the `/rb-check` command, and the `rb_check` tool | registers on `ctx.tools` |

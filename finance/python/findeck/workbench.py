@@ -1,9 +1,11 @@
 """资产 Work 模式：``workbench.yaml`` 定义格式的校验器与 brief 生成器。
 
-位置约定：``finance/workbenches/<name>.yaml``（``name`` 与文件名一致）。一份 workbench 定义
-"围绕哪一组已有资产干活"——资产集合（引用资产库中的资产名）+ 运行约定（常用 verb 序列、
-参数边界、解读要求）+ 展示名/描述。它自己不是执行器：真正跑起来的是资产声明的 verbs
-（``verb_bridge``）或流水线（``pipeline``），workbench 只提供会话锚与运行约定。
+位置约定：随产品交付的定义在 ``finance/workbenches/<name>.yaml``；用户从资产页创建的
+定义在 ``<家目录>/workbenches/<name>.yaml``（``FINDECK_WORKBENCH_DIR`` 可整体改掉该目录）。
+两份目录同名时用户定义优先。``name`` 与文件名一致。一份 workbench 定义"围绕哪一组已有
+资产干活"——资产集合（引用资产库中的资产名）+ 运行约定（常用 verb 序列、参数边界、解读
+要求）+ 展示名/描述。它自己不是执行器：真正跑起来的是资产声明的 verbs（``verb_bridge``）
+或流水线（``pipeline``），workbench 只提供会话锚与运行约定。
 
 定义格式（速查见 ``finance/skills/findeck-workbench/SKILL.md``）::
 
@@ -38,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -46,7 +49,7 @@ import yaml
 
 from . import assets
 
-__all__ = ['load', 'validate', 'brief', 'list_workbenches']
+__all__ = ['load', 'validate', 'brief', 'list_workbenches', 'list_workbenches_with_problems', 'user_workbench_dir']
 
 WORKBENCH_DIR = 'finance/workbenches'
 _KEBAB_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
@@ -57,6 +60,25 @@ _CONVENTION_KEYS = {'verbs', 'notes'}
 def repo_root() -> Path:
     """仓库根目录（workbench 定义默认从 ``finance/workbenches/`` 下解析）。"""
     return Path(__file__).resolve().parents[3]
+
+
+def _harness_home() -> Path:
+    """Harness 家目录，与 ``findeck.desk.harness_home`` 同一套优先级。"""
+    for key in ('FINDECK_HOME', 'ALPHADECK_HOME', 'DSH_HOME'):
+        value = os.environ.get(key)
+        if not value:
+            continue
+        path = Path(value).expanduser()
+        if key == 'DSH_HOME' and path.name == '.dsh':
+            continue
+        return path
+    return Path.home() / '.findeck'
+
+
+def user_workbench_dir() -> Path:
+    """用户 workbench 目录：``FINDECK_WORKBENCH_DIR``，否则 ``<家目录>/workbenches``。"""
+    override = os.environ.get('FINDECK_WORKBENCH_DIR')
+    return Path(override).expanduser() if override else _harness_home() / 'workbenches'
 
 
 def load(path: str | Path) -> dict:
@@ -77,10 +99,13 @@ def load(path: str | Path) -> dict:
 
 
 def _resolve(name: str | Path) -> Path:
-    """把 workbench 名解析成定义文件路径（给 .yaml/.yml 路径时按路径用）。"""
+    """把 workbench 名解析成定义文件路径（用户目录优先，其次随产品交付的目录）。"""
     p = Path(name)
     if p.suffix in ('.yaml', '.yml') or p.is_file():
         return p
+    user = user_workbench_dir() / f'{name}.yaml'
+    if user.is_file():
+        return user
     return repo_root() / WORKBENCH_DIR / f'{name}.yaml'
 
 
@@ -222,21 +247,41 @@ def brief(name: str | Path) -> str:
     return '\n'.join(lines).rstrip('\n') + '\n'
 
 
-def list_workbenches() -> list[dict]:
-    """列出 ``finance/workbenches/*.yaml`` 中全部 workbench 的摘要（逐个校验）。
+def list_workbenches(strict: bool = True) -> list[dict]:
+    """列出随产品交付与用户目录中的全部 workbench 摘要（用户同名覆盖）。
 
-    :raises ValueError: 任一文件校验失败——定义非法即报错，不做静默跳过。
+    严格模式下任一文件校验失败即抛错；非严格模式跳过该文件，把失败原因放进
+    :func:`list_workbenches_with_problems` 的问题列表，供资产页在库不完整时
+    仍能看到可用定义。
     """
-    base = repo_root() / WORKBENCH_DIR
-    out = []
-    if not base.is_dir():
-        return out
-    for p in sorted(base.glob('*.yaml')):
-        spec = validate(p)
-        out.append({'name': spec['name'], 'display_name': spec['display_name'],
-                    'description': spec['description'], 'assets': list(spec['assets']),
-                    'has_conventions': 'conventions' in spec, 'path': str(p)})
-    return out
+    items, problems = list_workbenches_with_problems()
+    if strict and problems:
+        raise ValueError('\n'.join(problems))
+    return items
+
+
+def list_workbenches_with_problems() -> tuple[list[dict], list[str]]:
+    """列出全部可用 workbench，并返回无法读取/校验的定义问题（不中断列表）。"""
+    out: list[dict] = []
+    problems: list[str] = []
+    seen: set[str] = set()
+    for base in (user_workbench_dir(), repo_root() / WORKBENCH_DIR):
+        if not base.is_dir():
+            continue
+        for p in sorted(base.glob('*.yaml')):
+            try:
+                spec = validate(p)
+            except (ValueError, KeyError) as e:
+                problems.append(f'{p}: {e}')
+                continue
+            if spec['name'] in seen:
+                continue
+            seen.add(spec['name'])
+            out.append({'name': spec['name'], 'display_name': spec['display_name'],
+                        'description': spec['description'], 'assets': list(spec['assets']),
+                        'has_conventions': 'conventions' in spec, 'path': str(p),
+                        'user_defined': base == user_workbench_dir()})
+    return sorted(out, key=lambda item: item['name']), problems
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -247,7 +292,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = parser.add_subparsers(dest='command', required=True)
     pv = sub.add_parser('validate', help='校验 workbench.yaml（fail loud）')
     pv.add_argument('path', help=f'workbench.yaml 路径，如 {WORKBENCH_DIR}/hs300-research.yaml')
-    sub.add_parser('list', help=f'列出 {WORKBENCH_DIR}/ 下全部 workbench')
+    list_parser = sub.add_parser('list', help=f'列出 {WORKBENCH_DIR}/ 与用户目录下全部 workbench')
+    list_parser.add_argument('--json', action='store_true', help='输出机器可读 JSON（宿主 Remote 使用）')
     ps = sub.add_parser('show', help='打印某个 workbench 的 brief（给 AI 的会话锚）')
     ps.add_argument('name', help='workbench 名，如 hs300-research')
     args = parser.parse_args(argv)
@@ -257,11 +303,16 @@ def main(argv: list[str] | None = None) -> int:
             print(f'[workbench] 校验通过: {spec["name"]}（{len(spec["assets"])} 个资产，'
                   f'{spec["display_name"]}）')
         elif args.command == 'list':
-            items = list_workbenches()
+            items, problems = list_workbenches_with_problems()
+            if args.json:
+                print(json.dumps({'items': items, 'problems': problems}, ensure_ascii=False))
+                return 0
             if not items:
                 print(f'[workbench] {WORKBENCH_DIR}/ 下暂无 workbench 定义')
             for it in items:
                 print(f'{it["name"]}\t{it["display_name"]}\t{len(it["assets"])} 个资产\t{it["description"]}')
+            for problem in problems:
+                print(f'[workbench] 跳过不可用定义: {problem}', file=sys.stderr)
         else:
             print(brief(args.name), end='')
     except (ValueError, RuntimeError, KeyError) as e:

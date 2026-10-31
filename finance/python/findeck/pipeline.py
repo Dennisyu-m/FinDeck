@@ -8,7 +8,7 @@
 
     name: daily-refresh
     description: 一句话
-    trigger: { kind: cron, schedule: "0 17 * * 1-5" }   # 或 { kind: manual }
+    trigger: { kind: cron, schedule: "0 17 * * 1-5" }   # 或 { kind: manual }，或 { kind: interval, everySeconds: 3600 }
     steps:
       - id: update-panel
         script: finance/pipelines/daily-refresh/update_panel.py
@@ -75,12 +75,12 @@ __all__ = ['load', 'validate', 'run']
 
 STEP_META_MARKER = '###FINDECK_STEP_META###'
 PIPELINE_DIR = 'finance/pipelines'
-TRIGGER_KINDS = ('manual', 'cron')
+TRIGGER_KINDS = ('manual', 'cron', 'interval')
 _KEBAB_RE = re.compile(r'^[a-z0-9]+(-[a-z0-9]+)*$')
 _ISO_DATE_RE = re.compile(r'^\d{4}-\d{2}-\d{2}$')
 
 _TOP_KEYS = {'name', 'description', 'trigger', 'steps'}
-_TRIGGER_KEYS = {'kind', 'schedule'}
+_TRIGGER_KEYS = {'kind', 'schedule', 'everySeconds'}
 _STEP_KEYS = {'id', 'script', 'params', 'inputs', 'produces'}
 _PRODUCES_KEYS = {'name', 'kind', 'verbs', 'description', 'interface', 'out',
                   'tags', 'dependencies', 'update_frequency'}
@@ -120,11 +120,23 @@ def _check_trigger(trigger, errors: list[str]) -> None:
         errors.append(f'trigger.kind 必须是 {TRIGGER_KINDS} 之一: {kind!r}')
         return
     schedule = trigger.get('schedule')
+    every = trigger.get('everySeconds')
     if kind == 'cron':
         if not isinstance(schedule, str) or not schedule.strip():
             errors.append(f'trigger.kind=cron 时 schedule 必填（cron 表达式）: {schedule!r}')
-    elif 'schedule' in trigger:
-        errors.append('trigger.kind=manual 时不应声明 schedule（该配置不会生效）')
+        if 'everySeconds' in trigger:
+            errors.append('trigger.kind=cron 时不应声明 everySeconds')
+    elif kind == 'interval':
+        if isinstance(every, bool) or not isinstance(every, int) or every < 1:
+            errors.append(
+                f'trigger.kind=interval 时 everySeconds 必填且为正整数（秒）: {every!r}')
+        if 'schedule' in trigger:
+            errors.append('trigger.kind=interval 时不应声明 schedule')
+    else:
+        if 'schedule' in trigger:
+            errors.append('trigger.kind=manual 时不应声明 schedule（该配置不会生效）')
+        if 'everySeconds' in trigger:
+            errors.append('trigger.kind=manual 时不应声明 everySeconds（该配置不会生效）')
 
 
 def _check_produces(prod, where: str, errors: list[str]) -> None:

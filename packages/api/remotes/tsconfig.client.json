@@ -86,6 +86,18 @@
     {
       "path": "../workspace-controller/tsconfig.client.json"
     },
+    // These three imports resolve to .ts files outside this rootDir. The
+    // reference keeps tsc on the referenced output instead of writing .js
+    // and .d.ts beside those sources.
+    {
+      "path": "../workspace-files/tsconfig.client.json"
+    },
+    {
+      "path": "../terminal-controller/tsconfig.client.json"
+    },
+    {
+      "path": "../../skill/roundtable"
+    },
     {
       "path": "../../typert/protocol"
     },

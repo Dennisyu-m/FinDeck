@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-Research reports state conclusions that later data can confirm or refute. This consumer package gives the model four tools over a durable thesis registry, so a conclusion becomes a tracked object with a metric, a due date, and a score instead of a paragraph nobody rechecks: `thesis_list` summarizes every manifest with its derived status and the registry score, `thesis_show` returns one thesis with its complete recheck history, `thesis_write` upserts one manifest, and `thesis_mark` records one recheck outcome with the evidence that decided it. Each thesis is one YAML manifest under `<thesesDir>/<id>.yaml` (default `<harness home>/asset-library/theses`, resolved from the configured home, `$DSH_HOME`, else `~/.findeck`), and the same files feed the research-asset page's thesis view and the scheduled recheck flow.
+Research reports state conclusions that later data can confirm or refute. This consumer package gives the model tools over the durable thesis registry owned by [`@deepseek-ai/dsh-thesis`](../thesis-registry/README.md), so a conclusion becomes a tracked object with a metric, a due date, and a score instead of a paragraph nobody rechecks: `thesis_list` summarizes every manifest with its derived status and the registry score, `thesis_show` returns one thesis with its complete recheck history, `thesis_write` upserts one manifest (when the composition allows it), and `thesis_mark` records one recheck outcome with the evidence that decided it. The same registry feeds the research-asset page's thesis view, the desk scorecard, and the value desk's due-date trigger.
 
 ## Table of Contents
 
@@ -25,27 +25,27 @@ Research reports state conclusions that later data can confirm or refute. This c
 <a id="use-this-package"></a>
 ## Use this package
 
-Mount the plugin to give the agent a place to register and recheck conclusions. It requires `ctx.tools`; the registry directory is package configuration, not a service.
+Mount the plugin beside `@deepseek-ai/dsh-thesis` to give the agent a place to register and recheck conclusions. It requires `ctx.tools` and `ctx.thesis`; the registry directory is configuration on the registry row.
 
 ### When to choose it
 
-Use it in FinDeck compositions where research sessions produce reports that state falsifiable conclusions. A session that only answers questions has nothing to register, so the tools stay idle until the research protocol's thesis step asks for one.
+Use it in FinDeck compositions where research sessions produce reports that state falsifiable conclusions. A session that only answers questions has nothing to register, so the tools stay idle until the research protocol's thesis step asks for one. The unattended desk composition sets `allowWrite: false`: it may recheck an existing thesis but not create a new one.
 
 ### Mount and configure
 
 ```yaml
 - name: '@deepseek-ai/dsh-tool-thesis'
   config:
-    thesesDir: '~/.findeck/asset-library/theses'
+    allowWrite: true
 ```
 
 | Field | Default | Meaning |
 |---|---|---|
-| `thesesDir` | `<harness home>/asset-library/theses` | Directory holding one `<id>.yaml` manifest per thesis; created on first write. |
+| `allowWrite` | `true` | Whether `thesis_write` is registered at all. `false` keeps listing, showing, and rechecking. |
 
 ### What the model gets
 
-Three tools with strict argument validation:
+Tools with strict argument validation:
 
 - `thesis_list` — every manifest with `id`, `conclusion`, `metric`, `threshold`, `due_date`, `report`, `assets`, the derived `status`, `overdue`, `check_count`, plus the registry `score`.
 - `thesis_show` — one manifest in full: every field plus the complete `checks` history (date, outcome, evidence) and that thesis's own hit/miss score.
@@ -63,11 +63,11 @@ A successful write returns the stored manifest summary; a successful mark return
 
 ### Design concept
 
-The registry is files-first: one manifest per thesis, named by id, so a user can read, diff, and hand-edit the same files the tools write. Status and score are derived on read from the appended `checks` history — the newest check decides `open`/`hit`/`miss`, and the score is hits / (hits + misses) over every check in the registry. Writes replace the file atomically, so a crash mid-write cannot truncate a manifest.
+The registry is files-first: one manifest per thesis, named by id, so a user can read, diff, and hand-edit the same files the tools write. `@deepseek-ai/dsh-thesis` owns parsing, validation, atomic writes, and derived status; this package only registers the model tools over that service.
 
 ### Source map
 
-- `src/index.ts` — tool registration, the `thesesDir` config, manifest parsing and validation, atomic upsert/mark, and the derived summary.
+- `src/index.ts` — tool registration and output rendering; every read and write delegates to `ctx.thesis`.
 
 -----
 
@@ -117,7 +117,7 @@ Append-only; newly visible results follow the reusable request prefix.
 These limits define when the registry is a poor fit. They are current package constraints, not a task backlog.
 
 - **The score is unweighted** — every check counts once, so a thesis rechecked ten times moves the registry score ten times; there is no per-thesis weighting.
-- **Nothing schedules a recheck** — `due_date` and `overdue` are read-side flags; the scheduled-task flow binds the recheck explicitly.
+- **Due dates alone do not run a recheck** — `due_date` and `overdue` are read-side flags; the value desk's `thesis-due` trigger dispatches a run, and any other composition must bind the recheck itself.
 - **No metric evaluation** — the tools store what the model concluded; fetching data and computing the metric stays with the caller.
 - **One registry per directory** — the config names a single `thesesDir`; separate registries need separate plugin rows.
 

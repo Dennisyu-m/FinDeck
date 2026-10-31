@@ -16,10 +16,10 @@ import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { networkInterfaces } from 'node:os'
 import { fileURLToPath } from 'node:url'
-import { readFile, readdir, stat, mkdir, open } from 'node:fs/promises'
+import { readFile, readdir, stat, mkdir, mkdtemp, open, rm } from 'node:fs/promises'
 import type { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
-import { parseDocument, parse as parseYaml } from 'yaml'
+import { parseDocument, parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { withFileLock, writeFileAtomic } from '@deepseek-ai/dsh-atomic-write'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { TypertRemoteService, Remote, RemoteError } from '@deepseek-ai/dsh-typert-protocol'
@@ -45,6 +45,23 @@ import type {} from '@deepseek-ai/dsh-session-persistence'
 import type { ProjectionSnapshot } from '@deepseek-ai/dsh-session-projection'
 import type {} from '@deepseek-ai/dsh-session-projection-cache'
 import { deleteSchedule, pauseSchedule, resumeSchedule } from '@deepseek-ai/dsh-schedule'
+import type { AutomationTaskSnapshot } from '@deepseek-ai/dsh-automation-runner'
+import type {
+  DeskBudget,
+  DeskDecisionView,
+  DeskFeedbackRow,
+  DeskReportDetail,
+  DeskRun,
+  DeskRunDetail,
+  DeskRunQuery,
+  DeskScorecard,
+  DeskTarget,
+  DeskTaskSpec,
+  DeskTaskView,
+  DeskTemplate,
+  DeskTrigger,
+} from '@deepseek-ai/dsh-desk'
+import type {} from '@deepseek-ai/dsh-desk'
 import type {} from '@deepseek-ai/dsh-session-title'
 import { SessionLogOffset } from '@deepseek-ai/dsh-session'
 import { assetLibraryDir, FINANCE_PYTHON_DIR, probeDataEnv, VENV_PYTHON } from './environment.ts'
@@ -53,6 +70,9 @@ import type {
   AssetOverview,
   DataEnvReport,
   ScheduleOverview,
+  AutomationTaskList,
+  AutomationTaskView,
+  AutomationRunResultView,
   AssetOverviewAsset,
   AssetOverviewFlow,
   AssetOverviewReport,
@@ -65,7 +85,28 @@ import type {
   AssetLibrary,
   AssetLibraryAsset,
   AssetLibraryFreshness,
+  CreateWorkRequest,
+  CreateWorkResult,
+  DeskBudgetWire,
+  DeskDecisionWire,
+  DeskFeedbackWire,
+  DeskListValue,
+  DeskReportBriefValue,
+  DeskReportValue,
+  DeskRunDetailValue,
+  DeskRunListValue,
+  DeskRunQueryWire,
+  DeskRunWire,
+  DeskScorecardValue,
+  DeskShowValue,
+  DeskSignalWire,
+  DeskTargetWire,
+  DeskTaskInputWire,
+  DeskTaskViewWire,
+  DeskTemplateWire,
+  DeskTriggerWire,
   PluginPatchRow,
+  PluginPatchWriteEntry,
   PluginPatchWriteRequest,
   RemoteJson,
   RunVerbRequest,
@@ -73,6 +114,8 @@ import type {
   ScheduleControlRequest,
   ScheduleManagementResult,
   ScheduleRemovalResult,
+  WorkbenchListValue,
+  WorkbenchView,
 } from './types.ts'
 
 export type {
@@ -83,6 +126,9 @@ export type {
   ComponentProgress,
   DataEnvReport,
   ScheduleOverview,
+  AutomationTaskList,
+  AutomationTaskView,
+  AutomationRunResultView,
   AssetOverviewAsset,
   AssetOverviewFlow,
   AssetOverviewFlowStep,
@@ -97,7 +143,28 @@ export type {
   AssetLibrary,
   AssetLibraryAsset,
   AssetLibraryFreshness,
+  CreateWorkRequest,
+  CreateWorkResult,
+  DeskBudgetWire,
+  DeskDecisionWire,
+  DeskFeedbackWire,
+  DeskListValue,
+  DeskReportBriefValue,
+  DeskReportValue,
+  DeskRunDetailValue,
+  DeskRunListValue,
+  DeskRunQueryWire,
+  DeskRunWire,
+  DeskScorecardValue,
+  DeskShowValue,
+  DeskSignalWire,
+  DeskTargetWire,
+  DeskTaskInputWire,
+  DeskTaskViewWire,
+  DeskTemplateWire,
+  DeskTriggerWire,
   PluginPatchRow,
+  PluginPatchWriteEntry,
   PluginPatchWriteRequest,
   RemoteJson,
   RunVerbRequest,
@@ -105,6 +172,8 @@ export type {
   ScheduleControlRequest,
   ScheduleManagementResult,
   ScheduleRemovalResult,
+  WorkbenchListValue,
+  WorkbenchView,
 } from './types.ts'
 
 /** Stable Cordis plugin name. */
@@ -460,16 +529,37 @@ export async function readUserPatch(file: string): Promise<PluginPatchRow[]> {
   return rows
 }
 
+/** Apply one disable fact onto the parsed user-layer sequence. */
+function applyPatchEntry(seq: PatchSeqNode, request: PluginPatchWriteEntry): void {
+  let matched: PatchMapNode | undefined
+  for (const node of seq.items ?? []) {
+    if (rowIdOf(node) === request.id) matched = node
+  }
+  if (matched === undefined && request.disabled !== null) {
+    seq.add?.({ id: request.id, disabled: request.disabled })
+  } else if (matched !== undefined) {
+    if (request.disabled === null) {
+      matched.delete?.('disabled')
+      if (rowOnlyId(matched)) {
+        const at = seq.items?.indexOf(matched) ?? -1
+        if (at >= 0) (seq.items as unknown[]).splice(at, 1)
+      }
+    } else {
+      matched.set?.('disabled', request.disabled)
+    }
+  }
+}
+
 /**
- * Write one entry's user-layer disable fact, comment-preserving. The row is
- * located by id and its `disabled` key updated; a non-existent entry appends
- * a row; `disabled: null` removes the key (and the row when nothing else
- * remains), returning the entry to the layers below.
+ * Write one or more user-layer disable facts in a single file replacement.
+ * Each row is located by id; a missing row is appended; `disabled: null`
+ * removes the key (and the row when nothing else remains).
  * @param file - the patch file to write (created when absent).
- * @param request - the entry id and the next disable fact (null drops the row).
+ * @param request - one entry, or a group applied together.
  * @returns the rows as written.
  */
 export async function writeUserPatch(file: string, request: PluginPatchWriteRequest): Promise<PluginPatchRow[]> {
+  const batch = Array.isArray(request) ? request : [request]
   await mkdir(dirname(file), { recursive: true, mode: 0o700 })
   await withFileLock(file, async () => {
     let text: string
@@ -494,33 +584,32 @@ export async function writeUserPatch(file: string, request: PluginPatchWriteRequ
     if (seq === null || seq === undefined || seq.items === undefined) {
       throw new Error('user cordis.patch.yml could not be seeded as a sequence')
     }
-    let matched: PatchMapNode | undefined
-    for (const node of seq.items) {
-      if (rowIdOf(node) === request.id) matched = node
-    }
-    if (matched === undefined && request.disabled !== null) {
-      seq.add?.({ id: request.id, disabled: request.disabled })
-    } else if (matched !== undefined) {
-      if (request.disabled === null) {
-        matched.delete?.('disabled')
-        if (rowOnlyId(matched)) {
-          const at = seq.items.indexOf(matched)
-          ;(seq.items as unknown[]).splice(at, 1)
-        }
-      } else {
-        matched.set?.('disabled', request.disabled)
-      }
-    }
+    for (const entry of batch) applyPatchEntry(seq, entry)
     await writeFileAtomic(file, doc.toString(), { mode: 0o600, dirMode: 0o700 })
   })
   return readUserPatch(file)
 }
 
 /**
+ * Map a caller id onto the patch id (`options.id`).
+ * The inventory names `entry.id`, which is prefixed when the entry sits under
+ * another entry; the user patch matches the unprefixed id.
+ * @returns the patch id, or undefined when the caller id is not in the composition.
+ */
+function canonicalLoaderId(ctx: Context, raw: string): string | undefined {
+  for (const entry of ctx.loader.entries()) {
+    const short = entry.options.id
+    if (typeof short !== 'string') continue
+    if (raw === short || raw === entry.id) return short
+  }
+  return undefined
+}
+
+/**
  * The plugin-page toggle's host gateway: read the user-layer patch and write
- * one entry's disable fact into it. The patch is the user's own layer
- * (`$DSH_HOME/cordis.patch.yml`), applied last at boot, so a toggle lands
- * there and takes effect on the next start.
+ * disable facts into it. One call writes one entry or a group, in one file
+ * replacement, so a live-reload profile recomposes once. The patch is the
+ * user's own layer (`$DSH_HOME/cordis.patch.yml`), applied last at boot.
  */
 export class PluginPatchGateway extends TypertRemoteService {
   constructor(ctx: Context) {
@@ -537,13 +626,50 @@ export class PluginPatchGateway extends TypertRemoteService {
   }
 
   /**
-   * Write one entry's disable fact into the user layer.
-   * @param request - the entry and the fact (null drops the row).
+   * Switch groups published by the automation settings plugin.
+   * Empty when that plugin is not loaded.
+   * @returns each group's id and its loader entry ids.
+   */
+  @Remote
+  scheduledGroups(): Promise<{ id: string, entries: string[], defaultOn: boolean }[]> {
+    const groups = this.ctx.get('automationSwitchGroups') as
+      | readonly { id: string, entries: readonly string[], defaultOn?: boolean }[]
+      | undefined
+    if (groups === undefined) return Promise.resolve([])
+    return Promise.resolve(groups.map(group => ({
+      id: group.id,
+      entries: [...group.entries],
+      defaultOn: group.defaultOn !== false,
+    })))
+  }
+
+  /**
+   * Write one entry, or a group of entries, into the user layer.
+   * Every id is checked against the current Loader before the file is
+   * touched; an unknown id rejects the whole batch. A caller may pass the
+   * patch id (`options.id`) or the Loader's prefixed `entry.id`; the file
+   * stores the patch id.
+   * @param request - one `{ id, disabled }`, or a list of them.
    * @returns the rows as written.
    */
   @Remote
   write(request: PluginPatchWriteRequest): Promise<PluginPatchRow[]> {
-    return writeUserPatch(userPatchPath(), request)
+    const batch = Array.isArray(request) ? [...request] : [request]
+    const resolved: PluginPatchWriteEntry[] = []
+    const missing: string[] = []
+    for (const entry of batch) {
+      const id = canonicalLoaderId(this.ctx, entry.id)
+      if (id === undefined) missing.push(entry.id)
+      else resolved.push({ id, disabled: entry.disabled })
+    }
+    if (missing.length > 0) {
+      throw new RemoteError(
+        'gateway/internal',
+        `pluginPatch.write: unknown loader id(s): ${missing.join(', ')}`,
+        {},
+      )
+    }
+    return writeUserPatch(userPatchPath(), resolved)
   }
 }
 
@@ -1093,6 +1219,203 @@ async function runVerbBridge(request: RunVerbRequest): Promise<RunVerbResult> {
   }
 }
 
+/** Timeout for one finance-module invocation (workbench list/validate/show). */
+const FINANCE_MODULE_TIMEOUT_MS = 60_000
+
+/** The user-owned workbench directory, beside the harness home's other domains. */
+function userWorkbenchDir(): string {
+  return join(resolveDshHome(), 'workbenches')
+}
+
+/** Collect one plain finance process under a bounded timeout. */
+function collectFinanceProcess(child: ChildProcess, label: string): Promise<{ code: number | null, stdout: string, stderr: string }> {
+  return new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
+    child.stdout?.on('data', (chunk: string) => { stdout += chunk })
+    child.stderr?.on('data', (chunk: string) => { stderr += chunk })
+    const timer = setTimeout(() => {
+      child.kill()
+      reject(new Error(`${label} exceeded ${String(FINANCE_MODULE_TIMEOUT_MS / 1000)}s and was killed`))
+    }, FINANCE_MODULE_TIMEOUT_MS)
+    child.once('error', (error: Error) => {
+      clearTimeout(timer)
+      reject(error)
+    })
+    child.once('close', (code: number | null) => {
+      clearTimeout(timer)
+      resolve({ code, stdout, stderr })
+    })
+  })
+}
+
+/**
+ * Run one finance Python module in the venv, cwd `finance/python`, with the
+ * harness home and asset library pinned so the Python defaults cannot pick a
+ * different tree than this host.
+ * @param argv - arguments after the interpreter, e.g. `['-m', 'findeck.workbench', 'list', '--json']`.
+ * @returns the captured stdio.
+ * @throws RemoteError `gateway/internal` when the child cannot start, overruns, or exits non-zero.
+ */
+async function runFinanceModule(argv: readonly string[]): Promise<{ stdout: string, stderr: string }> {
+  let child: ChildProcess
+  try {
+    child = spawn(VENV_PYTHON, [...argv], {
+      cwd: FINANCE_PYTHON_DIR,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: {
+        ...process.env,
+        FINDECK_HOME: resolveDshHome(),
+        FINDECK_ASSET_DIR: assetLibraryDir(),
+        FINDECK_WORKBENCH_DIR: userWorkbenchDir(),
+      },
+    })
+  } catch (error) {
+    throw new RemoteError('gateway/internal', `web-app: could not start the finance module (${String(error)})`, {}, { cause: error })
+  }
+  let outcome: { code: number | null, stdout: string, stderr: string }
+  try {
+    outcome = await collectFinanceProcess(child, argv.join(' '))
+  } catch (error) {
+    throw new RemoteError('gateway/internal', `web-app: finance module failed (${error instanceof Error ? error.message : String(error)})`, {}, { cause: error })
+  }
+  if (outcome.code !== 0) {
+    const detail = outcome.stderr.trim() || outcome.stdout.trim() || `exit code ${String(outcome.code)}`
+    throw new RemoteError('gateway/internal', `web-app: finance module failed: ${detail.slice(0, 4000)}`, {})
+  }
+  return { stdout: outcome.stdout, stderr: outcome.stderr }
+}
+
+/**
+ * List the workbench definitions from the shipped and user directories.
+ * @returns the definitions and an empty problem list (Python fails loud on a broken file).
+ */
+async function readWorkbenches(): Promise<WorkbenchListValue> {
+  const { stdout } = await runFinanceModule(['-m', 'findeck.workbench', 'list', '--json'])
+  const line = stdout.trim().split(/\r?\n/u).at(-1) ?? ''
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(line)
+  } catch (error) {
+    throw new RemoteError('gateway/internal', `web-app: workbench list printed no JSON (${String(error)})`, {})
+  }
+  const problems: string[] = []
+  let entries: unknown
+  if (Array.isArray(parsed)) {
+    entries = parsed
+  } else if (typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { items?: unknown }).items)) {
+    entries = (parsed as { items: unknown[] }).items
+    const reported = (parsed as { problems?: unknown }).problems
+    if (Array.isArray(reported)) problems.push(...reported.filter((item): item is string => typeof item === 'string'))
+  } else {
+    throw new RemoteError('gateway/internal', 'web-app: workbench list has no items array', {})
+  }
+  const workbenches: WorkbenchView[] = (entries as unknown[]).flatMap((entry): WorkbenchView[] => {
+    if (typeof entry !== 'object' || entry === null) return []
+    const record = entry as Record<string, unknown>
+    if (typeof record.name !== 'string' || typeof record.display_name !== 'string'
+      || typeof record.description !== 'string' || !Array.isArray(record.assets)) return []
+    return [{
+      name: record.name,
+      displayName: record.display_name,
+      description: record.description,
+      assets: record.assets.filter((asset): asset is string => typeof asset === 'string'),
+      hasConventions: record.has_conventions === true,
+      path: typeof record.path === 'string' ? record.path : '',
+      userDefined: record.user_defined === true,
+    }]
+  })
+  return { workbenches, problems }
+}
+
+/**
+ * Create one user Work mode definition from selected assets.
+ *
+ * The definition uses the existing `workbench.yaml` fields, is validated by
+ * the repository's Python validator before an atomic write, and its session
+ * seed is the validator's own `brief` output.
+ * @param request - name, display name, description, selected assets, and optional conventions.
+ * @returns the stored name, path, and generated seed.
+ * @throws RemoteError `gateway/invalid-request` for a malformed name or empty selection; `gateway/internal` when an asset is unknown or the validator refuses the definition.
+ */
+async function createWorkbench(request: CreateWorkRequest): Promise<CreateWorkResult> {
+  if (typeof request?.name !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(request.name)) {
+    throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: name must be kebab-case', {})
+  }
+  if (typeof request.displayName !== 'string' || request.displayName.trim() === '') {
+    throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: displayName must be a non-empty string', {})
+  }
+  if (typeof request.description !== 'string' || request.description.trim() === '') {
+    throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: description must be a non-empty string', {})
+  }
+  if (!Array.isArray(request.assets) || request.assets.length === 0
+    || request.assets.some(asset => typeof asset !== 'string' || asset === '')) {
+    throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: assets must be a non-empty string list', {})
+  }
+  const unique = [...new Set(request.assets)]
+  const problems: string[] = []
+  const library = await readAssetLibraryIndex(problems, localToday())
+  const available = new Set(library.map(asset => asset.name))
+  const missing = unique.filter(asset => !available.has(asset))
+  if (missing.length > 0) {
+    throw new RemoteError('gateway/internal', `assetOverview.createWork: assets not in the library: ${missing.join(', ')}`, {})
+  }
+  const existing = await readWorkbenches()
+  if (existing.workbenches.some(workbench => workbench.name === request.name)) {
+    throw new RemoteError('gateway/internal', `assetOverview.createWork: a Work mode named "${request.name}" already exists`, {})
+  }
+  const conventions = request.conventions
+  if (conventions !== undefined) {
+    if (conventions.verbs !== undefined
+      && (!Array.isArray(conventions.verbs) || conventions.verbs.some(verb => typeof verb !== 'string' || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(verb)))) {
+      throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: conventions.verbs must be kebab-case names', {})
+    }
+    if (conventions.notes !== undefined && (typeof conventions.notes !== 'string' || conventions.notes.trim() === '')) {
+      throw new RemoteError('gateway/invalid-request', 'assetOverview.createWork: conventions.notes must be a non-empty string', {})
+    }
+  }
+  const document = {
+    name: request.name,
+    display_name: request.displayName.trim(),
+    description: request.description.trim(),
+    assets: unique,
+    ...conventions === undefined || (conventions.verbs === undefined && conventions.notes === undefined)
+      ? {}
+      : {
+        conventions: {
+          ...conventions.verbs === undefined ? {} : { verbs: conventions.verbs },
+          ...conventions.notes === undefined ? {} : { notes: conventions.notes.trim() },
+        },
+      },
+  }
+  const dir = userWorkbenchDir()
+  await mkdir(dir, { recursive: true, mode: 0o700 })
+  const final = join(dir, `${request.name}.yaml`)
+  const scratch = await mkdtemp(join(dir, '.validate-'))
+  try {
+    const candidate = join(scratch, `${request.name}.yaml`)
+    await writeFileAtomic(candidate, `${stringifyYaml(document, { lineWidth: 0 })}`, { mode: 0o600, dirMode: 0o700 })
+    await runFinanceModule(['-m', 'findeck.workbench', 'validate', candidate])
+  } finally {
+    await rm(scratch, { recursive: true, force: true })
+  }
+  await writeFileAtomic(final, `${stringifyYaml(document, { lineWidth: 0 })}`, { mode: 0o600, dirMode: 0o700 })
+  const brief = await runFinanceModule(['-m', 'findeck.workbench', 'show', request.name])
+  return { name: request.name, path: final, seed: brief.stdout }
+}
+
+/**
+ * Generate the session seed for one workbench definition.
+ * @param name - workbench name.
+ * @returns the brief text.
+ */
+async function readWorkbenchBrief(name: string): Promise<{ seed: string }> {
+  const brief = await runFinanceModule(['-m', 'findeck.workbench', 'show', name])
+  return { seed: brief.stdout }
+}
+
 /** Read every thesis manifest; unreadable files are skipped with a problem line. */
 async function readOverviewTheses(problems: string[]): Promise<AssetOverviewThesis[]> {
   const dir = join(assetLibraryDir(), 'theses')
@@ -1485,6 +1808,727 @@ export class AssetOverviewGateway extends TypertRemoteService {
     const manifest = assetFaceManifestOf(read.manifest)
     return { seed: assetBriefSeed(request.asset, { manifest, dir: read.dir, version: read.version }) }
   }
+
+  /**
+   * Every Work mode definition: the repository's shipped definitions plus the
+   * user's own, which shadow a shipped name.
+   * @returns the definitions, validated by the repository's Python validator.
+   */
+  @Remote
+  workbenches(): Promise<WorkbenchListValue> {
+    return readWorkbenches()
+  }
+
+  /**
+   * Create one user Work mode definition from selected library assets. The
+   * request is validated by the same Python validator and never overwrites an
+   * existing definition or a non-library asset name.
+   * @param request - name, display name, description, selected assets, and optional conventions.
+   * @returns the stored definition and its session seed.
+   * @throws RemoteError when the selection or definition is invalid.
+   */
+  @Remote
+  createWork(request: CreateWorkRequest): Promise<CreateWorkResult> {
+    return createWorkbench(request)
+  }
+
+  /**
+   * The session seed for one Work mode definition: each asset's name, latest
+   * version, absolute version directory, verbs, freshness, and the definition's
+   * execution conventions.
+   * @param request - the workbench name.
+   * @returns the brief text.
+   */
+  @Remote
+  workbenchBrief(request: { name: string }): Promise<{ seed: string }> {
+    if (typeof request?.name !== 'string' || request.name.trim() === '') {
+      return Promise.reject(new RemoteError('gateway/invalid-request', 'assetOverview.workbenchBrief: name must be a non-empty string', {}))
+    }
+    return readWorkbenchBrief(request.name)
+  }
+}
+
+/** One host task snapshot as the scheduled-tasks page's flat wire record. */
+function automationTaskView(task: AutomationTaskSnapshot): AutomationTaskView {
+  const view: AutomationTaskView = {
+    name: task.name,
+    kind: task.kind,
+    triggerKind: task.trigger.kind,
+  }
+  if (task.trigger.kind === 'cron') view.schedule = task.trigger.schedule
+  if (task.trigger.kind === 'interval') view.everySeconds = task.trigger.everySeconds
+  if (task.nextRunAt !== null) view.nextRunAt = task.nextRunAt
+  if (task.last !== null) {
+    view.lastTs = task.last.ts
+    view.lastStatus = task.last.status
+    view.lastExitCode = task.last.exitCode
+    view.lastTimedOut = task.last.timedOut
+  }
+  return view
+}
+
+/**
+ * Remote over the host automation runner: the scheduled-tasks page lists
+ * pipeline triggers and starts one immediate run. Desk tasks stay off this
+ * list. Session reminders stay on `scheduleOverview`.
+ */
+export class AutomationTasksGateway extends TypertRemoteService {
+  static inject = ['automationRunner']
+
+  constructor(ctx: Context) {
+    super(ctx, 'automationTasks')
+  }
+
+  /**
+   * Every loaded automation task.
+   * @returns the task list the page renders.
+   */
+  @Remote
+  tasks(): AutomationTaskList {
+    return { tasks: this.ctx.automationRunner.list().filter(task => task.kind === 'pipeline').map(automationTaskView) }
+  }
+
+  /**
+   * Run one task immediately. An unknown name is a client error; a task that
+   * is already running returns `status: 'skipped'` and does not start another process.
+   * @param request - the task name.
+   * @returns the runner outcome, with timeout independent of the exit code.
+   * @throws RemoteError `gateway/invalid-request` when `name` is missing.
+   */
+  @Remote
+  async runNow(request: { name: string }): Promise<AutomationRunResultView> {
+    if (typeof request?.name !== 'string' || request.name.trim() === '' || request.name !== request.name.trim()) {
+      throw new RemoteError('gateway/invalid-request', 'automationTasks.runNow: name must be a non-empty string', {})
+    }
+    const result = await this.ctx.automationRunner.runNow(request.name)
+    return {
+      name: result.name,
+      status: result.status,
+      exitCode: result.exitCode,
+      timedOut: result.timedOut,
+      signal: result.signal,
+    }
+  }
+}
+
+/** One desk trigger as the wire carries it. */
+function deskTriggerWire(trigger: DeskTrigger): DeskTriggerWire {
+  switch (trigger.kind) {
+    case 'cron': return { kind: 'cron', schedule: trigger.schedule }
+    case 'interval': return { kind: 'interval', everySeconds: trigger.everySeconds }
+    case 'event': return { kind: 'event', name: trigger.name }
+    case 'thesis-due': return { kind: 'thesis-due' }
+  }
+}
+
+/** One desk target as the wire carries it. */
+function deskTargetWire(target: DeskTarget): DeskTargetWire {
+  const refresh = target.refresh
+  return {
+    kind: target.kind,
+    ref: target.ref,
+    ...refresh === undefined
+      ? {}
+      : {
+        refresh: refresh.kind === 'verb'
+          ? { kind: 'verb', asset: refresh.asset, verb: refresh.verb }
+          : { kind: 'pipeline', name: refresh.name },
+      },
+  }
+}
+
+/** One budget as the wire carries it. */
+function deskBudgetWire(budget: DeskBudget): DeskBudgetWire {
+  return {
+    tokens: budget.tokens,
+    wallSeconds: budget.wallSeconds,
+    ...budget.maxOutputTokens === undefined ? {} : { maxOutputTokens: budget.maxOutputTokens },
+  }
+}
+
+/** One task view as the page renders it. */
+function deskTaskViewWire(view: DeskTaskView): DeskTaskViewWire {
+  return {
+    name: view.name,
+    displayName: view.displayName,
+    goal: view.goal,
+    enabled: view.enabled,
+    report: view.report,
+    targets: view.targets.map(deskTargetWire),
+    triggers: view.triggers.map(deskTriggerWire),
+    budget: deskBudgetWire(view.budget),
+    path: view.path,
+    nextRunAt: view.nextRunAt,
+    running: view.running,
+    last: view.last === null
+      ? null
+      : {
+        ts: view.last.ts,
+        status: view.last.status,
+        exitCode: view.last.exitCode,
+        timedOut: view.last.timedOut,
+      },
+  }
+}
+
+/** One run's trigger as the wire carries it. */
+function deskRunTriggerWire(trigger: DeskRun['trigger']): DeskRunWire['trigger'] {
+  switch (trigger.kind) {
+    case 'manual': return { kind: 'manual' }
+    case 'cron': return { kind: 'cron', schedule: trigger.schedule }
+    case 'interval': return { kind: 'interval', everySeconds: trigger.everySeconds }
+    case 'event': {
+      const deliveryId = trigger.deliveryId
+      const source = trigger.source
+      return {
+        kind: 'event',
+        name: trigger.name,
+        ...deliveryId === undefined ? {} : { deliveryId },
+        ...source === undefined ? {} : { source },
+      }
+    }
+    case 'thesis-due': return { kind: 'thesis-due', theses: [...trigger.theses] }
+  }
+}
+
+/** One signal row as the page renders it. */
+function deskSignalWire(signal: DeskRun['signals'][number]): DeskSignalWire {
+  const value = signal as Record<string, unknown>
+  const text = (key: string): string | undefined => {
+    const entry = value[key]
+    return typeof entry === 'string' ? entry : undefined
+  }
+  const number = (key: string): number | undefined => {
+    const entry = value[key]
+    return typeof entry === 'number' ? entry : undefined
+  }
+  const nullableNumber = (key: string): number | null | undefined => {
+    if (value[key] === null) return null
+    return number(key)
+  }
+  const asset = text('asset')
+  const version = number('version')
+  const note = text('note')
+  const asOf = text('asOf')
+  const change = nullableNumber('change')
+  const close = nullableNumber('close')
+  const volumeRatio = nullableNumber('volumeRatio')
+  const thesisStatus = text('thesisStatus')
+  const conclusion = text('conclusion')
+  const dueDate = text('dueDate')
+  return {
+    kind: signal.kind,
+    ref: signal.ref,
+    status: signal.status,
+    ...asset === undefined ? {} : { asset },
+    ...version === undefined ? {} : { version },
+    ...note === undefined ? {} : { note },
+    ...asOf === undefined ? {} : { asOf },
+    ...change === undefined ? {} : { change },
+    ...close === undefined ? {} : { close },
+    ...volumeRatio === undefined ? {} : { volumeRatio },
+    ...thesisStatus === undefined ? {} : { thesisStatus },
+    ...conclusion === undefined ? {} : { conclusion },
+    ...dueDate === undefined ? {} : { dueDate },
+    ...value.overdue === true ? { overdue: true } : {},
+  }
+}
+
+/** One run as the page renders it. */
+function deskRunWire(run: DeskRun): DeskRunWire {
+  return {
+    runId: run.runId,
+    task: run.task,
+    trigger: deskRunTriggerWire(run.trigger),
+    status: run.status,
+    startedAt: run.startedAt,
+    finishedAt: run.finishedAt,
+    durationMs: run.durationMs,
+    sessionId: run.sessionId,
+    report: run.report === null
+      ? null
+      : {
+        asset: run.report.asset,
+        version: run.report.version,
+        dir: run.report.dir,
+        tags: [...run.report.tags],
+        fallback: run.report.fallback,
+      },
+    signals: run.signals.map(deskSignalWire),
+    inputs: run.inputs.map(input => {
+      const kind = input.kind
+      return {
+        asset: input.asset,
+        version: input.version,
+        ...kind === undefined ? {} : { kind },
+      }
+    }),
+    summary: run.summary === null ? null : { ...run.summary },
+    stopReason: run.stopReason,
+    exitCode: run.exitCode,
+    signal: run.signal,
+    timedOut: run.timedOut,
+    cancelled: run.cancelled,
+    usage: run.usage === null
+      ? null
+      : {
+        inputTokens: run.usage.inputTokens,
+        outputTokens: run.usage.outputTokens,
+        totalTokens: run.usage.totalTokens,
+        cacheReadTokens: run.usage.cacheReadTokens,
+        cacheWriteTokens: run.usage.cacheWriteTokens,
+        reasoningTokens: run.usage.reasoningTokens,
+        requests: run.usage.requests,
+        unknown: run.usage.unknown,
+      },
+    error: run.error,
+    stderrTail: run.stderrTail,
+    reportExpected: run.reportExpected,
+  }
+}
+
+/** One report as the page renders it. */
+function deskReportValue(report: DeskReportDetail): DeskReportValue {
+  return {
+    asset: report.asset,
+    version: report.version,
+    dir: report.dir,
+    tags: [...report.tags],
+    fallback: report.fallback,
+    title: report.title,
+    sections: report.sections === null
+      ? null
+      : {
+        points: [...report.sections.points],
+        moves: report.sections.moves,
+        theses: report.sections.theses,
+        decisions: report.sections.decisions.map(decision => ({ kind: decision.kind, text: decision.text })),
+      },
+    markdown: report.markdown,
+    sources: report.sources.map(source => {
+      const kind = source.kind
+      return {
+        asset: source.asset,
+        version: source.version,
+        ...kind === undefined ? {} : { kind },
+      }
+    }),
+    sourcesComplete: report.sourcesComplete,
+  }
+}
+
+/** One decision as the page renders it. */
+function deskDecisionWire(decision: DeskDecisionView): DeskDecisionWire {
+  return {
+    id: decision.id,
+    kind: decision.kind,
+    text: decision.text,
+    status: decision.status,
+    handledAt: decision.handledAt,
+  }
+}
+
+/** Reject a missing or blank string at the Remote boundary. */
+function requireWireString(value: unknown, where: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new RemoteError('gateway/invalid-request', `${where} must be a non-empty string`, {})
+  }
+  return value
+}
+
+/** Map one task input from the wire; the Python validator decides field legality. */
+function deskSpecOf(request: DeskTaskInputWire): DeskTaskSpec {
+  if (request === null || typeof request !== 'object') {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: request must be an object', {})
+  }
+  if (!Array.isArray(request.targets) || request.targets.length === 0) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: targets must be a non-empty list', {})
+  }
+  if (!Array.isArray(request.triggers) || request.triggers.length === 0) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: triggers must be a non-empty list', {})
+  }
+  if (typeof request.budget !== 'object' || request.budget === null) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: budget must be an object', {})
+  }
+  const targets: DeskTarget[] = request.targets.map((target, index) => {
+    if (typeof target !== 'object' || target === null) {
+      throw new RemoteError('gateway/invalid-request', `desk.write: targets[${String(index)}] must be an object`, {})
+    }
+    const kind = requireWireString(target.kind, `targets[${String(index)}].kind`)
+    if (kind !== 'symbol' && kind !== 'theme' && kind !== 'thesis' && kind !== 'asset' && kind !== 'workbench') {
+      throw new RemoteError('gateway/invalid-request', `desk.write: targets[${String(index)}].kind is not a known target kind`, {})
+    }
+    const refresh = target.refresh
+    return {
+      kind,
+      ref: requireWireString(target.ref, `targets[${String(index)}].ref`),
+      ...refresh === undefined
+        ? {}
+        : refresh.kind === 'verb'
+          ? { refresh: { kind: 'verb' as const, asset: requireWireString(refresh.asset, 'refresh.asset'), verb: requireWireString(refresh.verb, 'refresh.verb') } }
+          : { refresh: { kind: 'pipeline' as const, name: requireWireString(refresh.name, 'refresh.name') } },
+    }
+  })
+  const triggers: DeskTrigger[] = request.triggers.map((trigger, index) => {
+    if (typeof trigger !== 'object' || trigger === null) {
+      throw new RemoteError('gateway/invalid-request', `desk.write: triggers[${String(index)}] must be an object`, {})
+    }
+    const kind = requireWireString(trigger.kind, `triggers[${String(index)}].kind`)
+    if (kind === 'cron') return { kind, schedule: requireWireString(trigger.schedule, `triggers[${String(index)}].schedule`) }
+    if (kind === 'interval') {
+      if (typeof trigger.everySeconds !== 'number' || !Number.isSafeInteger(trigger.everySeconds) || trigger.everySeconds < 1) {
+        throw new RemoteError('gateway/invalid-request', `desk.write: triggers[${String(index)}].everySeconds must be a positive integer`, {})
+      }
+      return { kind, everySeconds: trigger.everySeconds }
+    }
+    if (kind === 'event') return { kind, name: requireWireString(trigger.name, `triggers[${String(index)}].name`) }
+    if (kind === 'thesis-due') return { kind }
+    throw new RemoteError('gateway/invalid-request', `desk.write: triggers[${String(index)}].kind is not a known trigger kind`, {})
+  })
+  if (request.report !== 'always' && request.report !== 'changes') {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: report must be always or changes', {})
+  }
+  if (!Number.isSafeInteger(request.budget.tokens) || request.budget.tokens < 1) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: budget.tokens must be a positive integer', {})
+  }
+  if (!Number.isSafeInteger(request.budget.wallSeconds) || request.budget.wallSeconds < 1) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: budget.wallSeconds must be a positive integer', {})
+  }
+  if (request.budget.maxOutputTokens !== undefined
+    && (!Number.isSafeInteger(request.budget.maxOutputTokens) || request.budget.maxOutputTokens < 1)) {
+    throw new RemoteError('gateway/invalid-request', 'desk.write: budget.maxOutputTokens must be a positive integer', {})
+  }
+  return {
+    name: requireWireString(request.name, 'desk.write: name'),
+    displayName: requireWireString(request.display_name, 'desk.write: display_name'),
+    goal: requireWireString(request.goal, 'desk.write: goal'),
+    enabled: request.enabled ?? true,
+    targets,
+    triggers,
+    report: request.report,
+    budget: {
+      tokens: request.budget.tokens,
+      wallSeconds: request.budget.wallSeconds,
+      ...request.budget.maxOutputTokens === undefined ? {} : { maxOutputTokens: request.budget.maxOutputTokens },
+    },
+    proposedBy: 'user',
+  }
+}
+
+/**
+ * Remote over the host desk service: task management, runs, reports,
+ * templates, feedback, decisions, the scorecard, and follow-up seeds. Mounted
+ * only while the desk service row is loaded, so the namespace disappears with
+ * the desk switch.
+ */
+export class DeskGateway extends TypertRemoteService {
+  static inject = ['desk']
+
+  constructor(ctx: Context) {
+    // The wire namespace is `desk`; the Cordis key differs because the host
+    // service already owns `ctx.desk`.
+    super(ctx, 'deskRemote', { namespace: 'desk' })
+  }
+
+  /**
+   * Every desk task plus invalid task files.
+   * @returns the task list the page renders.
+   */
+  @Remote
+  async list(): Promise<DeskListValue> {
+    const result = await this.ctx.desk.list()
+    return { tasks: result.tasks.map(deskTaskViewWire), problems: [...result.problems] }
+  }
+
+  /**
+   * One task plus its five most recent runs.
+   * @param request - the task name.
+   * @returns the definition and recent runs.
+   */
+  @Remote
+  async show(request: { name: string }): Promise<DeskShowValue> {
+    requireWireString(request?.name, 'desk.show: name')
+    const detail = await this.ctx.desk.show(request.name)
+    const listed = await this.ctx.desk.list()
+    return {
+      task: deskTaskViewWire(detail.view),
+      recent: detail.recent.map(deskRunWire),
+      problems: [...listed.problems],
+    }
+  }
+
+  /**
+   * Create or replace one task and update its schedule immediately.
+   * @param request - the complete definition.
+   * @returns the stored view.
+   */
+  @Remote
+  async write(request: DeskTaskInputWire): Promise<DeskTaskViewWire> {
+    return deskTaskViewWire(await this.ctx.desk.write(deskSpecOf(request)))
+  }
+
+  /**
+   * Arm or pause one task's schedule.
+   * @param request - task name and the next enabled state.
+   * @returns the stored view.
+   */
+  @Remote
+  async setEnabled(request: { name: string, enabled: boolean }): Promise<DeskTaskViewWire> {
+    requireWireString(request?.name, 'desk.setEnabled: name')
+    if (typeof request.enabled !== 'boolean') {
+      throw new RemoteError('gateway/invalid-request', 'desk.setEnabled: enabled must be a boolean', {})
+    }
+    return deskTaskViewWire(await this.ctx.desk.setEnabled(request.name, request.enabled))
+  }
+
+  /**
+   * Run one task now and wait for the run to settle.
+   * @param request - the task name.
+   * @returns the settled outcome.
+   */
+  @Remote
+  async runNow(request: { name: string }): Promise<{ runId: string, status: string, stopReason: string, report: string | null }> {
+    requireWireString(request?.name, 'desk.runNow: name')
+    const outcome = await this.ctx.desk.runNow(request.name)
+    return {
+      runId: outcome.runId,
+      status: outcome.status,
+      stopReason: outcome.stopReason,
+      report: outcome.report === null ? null : `${outcome.report.asset}@v${String(outcome.report.version)}`,
+    }
+  }
+
+  /**
+   * Cancel the active run of one task.
+   * @param request - the task name.
+   * @returns whether a run was active.
+   */
+  @Remote
+  cancel(request: { name: string }): { cancelled: boolean } {
+    requireWireString(request?.name, 'desk.cancel: name')
+    return { cancelled: this.ctx.desk.cancel(request.name) }
+  }
+
+  /**
+   * Merged run records, newest first.
+   * @param request - optional task, start-time, status, and limit filters.
+   * @returns the runs and whether older history was cut by the read window.
+   */
+  @Remote
+  async runs(request: DeskRunQueryWire): Promise<DeskRunListValue> {
+    const query: DeskRunQuery = {
+      ...request.task === undefined ? {} : { task: requireWireString(request.task, 'desk.runs: task') },
+      ...request.since === undefined ? {} : { since: requireWireString(request.since, 'desk.runs: since') },
+      ...request.statuses === undefined
+        ? {}
+        : {
+          statuses: request.statuses.filter((status): status is DeskRun['status'] =>
+            typeof status === 'string'),
+        },
+      ...request.limit === undefined ? {} : { limit: request.limit },
+    }
+    const result = await this.ctx.desk.runs(query)
+    return {
+      runs: result.runs.map(deskRunWire),
+      truncated: result.truncated,
+      problems: [...result.problems],
+    }
+  }
+
+  /**
+   * One run with its report sections and decision state.
+   * @param request - task name and exact run id.
+   * @returns the detail.
+   */
+  @Remote
+  async runDetail(request: { task: string, runId: string }): Promise<DeskRunDetailValue> {
+    requireWireString(request?.task, 'desk.runDetail: task')
+    requireWireString(request?.runId, 'desk.runDetail: runId')
+    const detail: DeskRunDetail = await this.ctx.desk.runDetail(request.task, request.runId)
+    return {
+      run: deskRunWire(detail.run),
+      report: detail.report === null ? null : deskReportValue(detail.report),
+      decisions: detail.decisions.map(deskDecisionWire),
+    }
+  }
+
+  /**
+   * The two starter templates built from the current asset library.
+   * @returns the templates.
+   */
+  @Remote
+  async templates(): Promise<DeskTemplateWire[]> {
+    const templates = await this.ctx.desk.templates()
+    return templates.map((template: DeskTemplate): DeskTemplateWire => ({
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      available: template.available,
+      task: {
+        name: template.task.name,
+        display_name: template.task.displayName,
+        goal: template.task.goal,
+        enabled: template.task.enabled,
+        targets: template.task.targets.map(deskTargetWire),
+        triggers: template.task.triggers.map(deskTriggerWire),
+        report: template.task.report,
+        budget: deskBudgetWire(template.task.budget),
+      },
+    }))
+  }
+
+  /**
+   * Record one feedback mark on a run's report.
+   * @param request - task, run, kind, and optional note.
+   * @returns the stored mark.
+   */
+  @Remote
+  async feedback(request: { task: string, runId: string, kind: string, note?: string }): Promise<DeskFeedbackWire> {
+    requireWireString(request?.task, 'desk.feedback: task')
+    requireWireString(request?.runId, 'desk.feedback: runId')
+    if (request.kind !== 'useful' && request.kind !== 'useless' && request.kind !== 'handled') {
+      throw new RemoteError('gateway/invalid-request', 'desk.feedback: kind must be useful, useless, or handled', {})
+    }
+    return feedbackWire(await this.ctx.desk.feedback({
+      task: request.task,
+      runId: request.runId,
+      kind: request.kind,
+      ...request.note === undefined ? {} : { note: request.note },
+    }))
+  }
+
+  /**
+   * Every feedback mark with its active state.
+   * @returns the marks, newest first.
+   */
+  @Remote
+  async feedbackList(): Promise<DeskFeedbackWire[]> {
+    return (await this.ctx.desk.feedbackList()).map(feedbackWire)
+  }
+
+  /**
+   * Revoke one feedback mark.
+   * @param request - the mark id.
+   * @returns whether it existed.
+   */
+  @Remote
+  revokeFeedback(request: { id: string }): Promise<boolean> {
+    requireWireString(request?.id, 'desk.revokeFeedback: id')
+    return this.ctx.desk.revokeFeedback(request.id)
+  }
+
+  /**
+   * Reset the preference summary; feedback history stays visible.
+   * @returns the reset instant.
+   */
+  @Remote
+  resetPreferences(): Promise<{ resetAt: string }> {
+    return this.ctx.desk.resetPreferences().then(resetAt => ({ resetAt }))
+  }
+
+  /**
+   * Mark one "待你决策" item handled or open.
+   * @param request - task, run, decision id, and next state.
+   * @returns the updated decision list.
+   */
+  @Remote
+  async setDecision(request: { task: string, runId: string, decisionId: string, status: string }): Promise<DeskDecisionWire[]> {
+    requireWireString(request?.task, 'desk.setDecision: task')
+    requireWireString(request?.runId, 'desk.setDecision: runId')
+    requireWireString(request?.decisionId, 'desk.setDecision: decisionId')
+    if (request.status !== 'open' && request.status !== 'handled') {
+      throw new RemoteError('gateway/invalid-request', 'desk.setDecision: status must be open or handled', {})
+    }
+    return (await this.ctx.desk.setDecision({
+      task: request.task,
+      runId: request.runId,
+      decisionId: request.decisionId,
+      status: request.status,
+    })).map(deskDecisionWire)
+  }
+
+  /**
+   * Adopt one report conclusion as a tracked thesis.
+   * @param request - complete thesis fields.
+   * @returns the stored thesis identity.
+   */
+  @Remote
+  async adoptThesis(request: {
+    id: string
+    conclusion: string
+    metric: string
+    threshold: string
+    dueDate: string
+    report: string
+    assets?: string[]
+  }): Promise<{ id: string, dueDate: string, status: string }> {
+    requireWireString(request?.id, 'desk.adoptThesis: id')
+    requireWireString(request.conclusion, 'desk.adoptThesis: conclusion')
+    requireWireString(request.metric, 'desk.adoptThesis: metric')
+    requireWireString(request.threshold, 'desk.adoptThesis: threshold')
+    requireWireString(request.dueDate, 'desk.adoptThesis: dueDate')
+    requireWireString(request.report, 'desk.adoptThesis: report')
+    return this.ctx.desk.adoptThesis({
+      id: request.id,
+      conclusion: request.conclusion,
+      metric: request.metric,
+      threshold: request.threshold,
+      dueDate: request.dueDate,
+      report: request.report,
+      ...request.assets === undefined ? {} : { assets: request.assets },
+    })
+  }
+
+  /**
+   * The value-desk scorecard over one window.
+   * @param request - optional window length in days.
+   * @returns each metric with its window, denominator, and sample count.
+   */
+  @Remote
+  async scorecard(request: { windowDays?: number }): Promise<DeskScorecardValue> {
+    const scorecard: DeskScorecard = await this.ctx.desk.scorecard(request.windowDays)
+    return {
+      window: { ...scorecard.window },
+      theses: { ...scorecard.theses },
+      reports: { ...scorecard.reports },
+      assets: { ...scorecard.assets },
+      problems: [...scorecard.problems],
+    }
+  }
+
+  /**
+   * The follow-up seed for one report: exact report version, run id, and input
+   * asset versions, with missing sources named.
+   * @param request - task name and run id.
+   * @returns the seed and missing source versions.
+   */
+  @Remote
+  async reportBrief(request: { task: string, runId: string }): Promise<DeskReportBriefValue> {
+    requireWireString(request?.task, 'desk.reportBrief: task')
+    requireWireString(request?.runId, 'desk.reportBrief: runId')
+    const brief = await this.ctx.desk.reportBrief(request.task, request.runId)
+    return {
+      seed: brief.seed,
+      missingSources: [...brief.missingSources],
+      sourcesComplete: brief.sourcesComplete,
+    }
+  }
+}
+
+/** One feedback row as the page renders it. */
+function feedbackWire(row: DeskFeedbackRow): DeskFeedbackWire {
+  return {
+    id: row.id,
+    ts: row.ts,
+    task: row.task,
+    runId: row.runId,
+    reportAsset: row.reportAsset,
+    reportVersion: row.reportVersion,
+    kind: row.kind,
+    note: row.note,
+    active: row.active,
+    revokedAt: row.revokedAt ?? null,
+  }
 }
 
 /**
@@ -1507,6 +2551,12 @@ export function apply(ctx: Context, config: Config): void {
   ctx.plugin(ComponentCatalogGateway)
   // The schedule page's read-only source: stored sessions' schedules.
   ctx.plugin(ScheduleOverviewGateway)
+  // The scheduled-tasks page: pipeline triggers and immediate runs, delegated
+  // to the host automation runner. This is not the session-reminder catalog.
+  ctx.plugin(AutomationTasksGateway)
+  // The desk page and its actions: mounted only while the desk service row is
+  // loaded, so the switch removes the namespace together with the page.
+  ctx.plugin(DeskGateway)
   // The schedule page's write side: pause and resume ride the schedule
   // package's own durable management path.
   ctx.plugin(ScheduleControlGateway)

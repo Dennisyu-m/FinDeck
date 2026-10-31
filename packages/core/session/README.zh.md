@@ -143,7 +143,7 @@ session.deriveMessages()         // the derived model history
 
 追加的 surface 条目会保留可复用前缀。即使底层事件日志保持仅追加，`replace` 操作也会从首条被遮蔽消息起使缓存复用失效。
 
-### 崩溃修复结果
+### 未应答工具调用的恢复
 
 #### 模型看到什么
 
@@ -151,7 +151,7 @@ session.deriveMessages()         // the derived model history
 
 #### Token 影响
 
-未受损会话的 token 增量为零。恢复时，每个修复后的调用都会添加保留的、针对具体风险的错误文本。
+每个已请求的调用都有持久结果时，token 增量为零。活步骤在 `step/end` 之前失败，以及崩溃后的恢复，都会为每个未应答的调用追加一条错误结果。
 
 #### KV Cache 影响
 

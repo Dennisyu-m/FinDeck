@@ -84,7 +84,7 @@ export interface CordisInspectQueryResolved {
 
 /** Whether a Client answer claimed the still-pending query. */
 export interface CordisInspectResolveAck {
-  /** False for unknown, cancelled, stale, or late answers. */
+  /** True only for a valid success that settles the query; false for retained failures and unknown, expired, cancelled, or late answers. */
   accepted: boolean
 }
 

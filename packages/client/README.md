@@ -72,7 +72,7 @@ The kernel packages boot and serve the page; the UI feature packages present it.
 | [`ui-agent-preset/`](ui-agent-preset/README.md) | Selects a session's agent preset and authors preset compositions | — |
 | [`ui-settings/`](ui-settings/README.md) | Hosts the settings interface and its extension areas | — |
 | [`ui-settings-general/`](ui-settings-general/README.md) | Settings shell: primary page navigation and single-page dialogs over the section ledger | — |
-| [`ui-pages/`](ui-pages/README.md) | Primary-navigation pages (scheduled tasks, environment and components) and the Help page | — |
+| [`ui-pages/`](ui-pages/README.md) | Primary-navigation pages (session reminders, environment and components) and the Help page | — |
 | [`ui-assets/`](ui-assets/README.md) | Owns the asset hub section: asset grid and list, reports, mode flows, lineage graph, and face detail | — |
 | [`ui-projects/`](ui-projects/README.md) | Owns the project management section over the `workspace` and `agentPresets` Remote namespaces | — |
 | [`ui-roundtable/`](ui-roundtable/README.md) | Owns the roundtable primary page and its steering surface | — |

@@ -520,6 +520,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     declaredBy: 'an entry in \'conversation.composer.bar\' (client-ui-conversation), so it exists while that entry is mounted',
     occupants: [
       'client-ui-chat StatsLine id \'stats\'',
+      'client-ui-user-questions PendingQuestionDock id \'pending-questions\'',
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'conversation.composer.dock\', () => ctx.slots.register(\n      { name: \'conversation.composer.dock\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
@@ -1902,7 +1903,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.general.item\', () => ctx.slots.register(\n      { name: \'settings.general.item\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:96',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:100',
   },
   {
     key: 'settings.header',
@@ -2070,7 +2071,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.onboarding\', () => ctx.slots.register(\n      { name: \'settings.onboarding\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:81',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:85',
   },
   {
     key: 'settings.plugin.item',
@@ -2165,7 +2166,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.plugins.body\', () => ctx.slots.register(\n      { name: \'settings.plugins.body\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:64',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:68',
   },
   {
     key: 'settings.plugins.system',
@@ -2215,14 +2216,14 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.plugins.system\', () => ctx.slots.register(\n      { name: \'settings.plugins.system\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:70',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:74',
   },
   {
     key: 'settings.section',
     kind: 'list',
     scope: 'root',
     summary: 'One settings page per list entry.',
-    doc: 'One settings page per list entry. Registrant options carry the nav\nidentity: `id` (section key, drives `only` filtering), `order` (nav\nposition), `label` (registrant-localized display text — the registrant\nre-registers with fresh text on locale change, so the shell never\nsubscribes locale state; the ledger bump doubles as the shell\'s\nre-render trigger). Sections render inside the panel content column.\n(`settings.general.item`, declared by ui-settings-general\'s General\nentry, is typed in the locale package — the common dependency of every\nitem registrant; the shell neither declares nor renders it.)',
+    doc: 'One settings page per list entry. Registrant options carry the nav\nidentity: `id` (section key, drives `only` filtering), `order` (ledger\nposition), `label` (registrant-localized display text — the registrant\nre-registers with fresh text on locale change, so the shell never\nsubscribes locale state; the ledger bump doubles as the shell\'s\nre-render trigger), `icon` (shell glyph name, a string), `place`\n(`nav`, `settings`, or `both`), `navOrder`, and `settingsOrder`.\nThe shell lists a section only when `place` names that list; a section\nwithout `place` is a page the shell reaches through its own chrome.\nSections render inside the panel content column.\n(`settings.general.item`, declared by ui-settings-general\'s General\nentry, is typed in the locale package — the common dependency of every\nitem registrant; the shell neither declares nor renders it.)',
     registerOptions: [
       {
         name: 'id',
@@ -2241,6 +2242,30 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
         requirement: 'optional',
         type: 'string | (() => string)',
         doc: 'Display text where the owner projects one (nav rows, tabs). A thunk is re-read on every projection, so localized text follows the active locale without re-registering.',
+      },
+      {
+        name: 'icon',
+        requirement: 'optional',
+        type: 'string',
+        doc: 'Shell glyph name (the ui-shell 24×24 line set). A string, not a ReactNode. An unknown name draws no glyph.',
+      },
+      {
+        name: 'place',
+        requirement: 'optional',
+        type: '\'nav\' | \'settings\' | \'both\'',
+        doc: 'Which shell list shows this section. Omit for a page the shell reaches through its own chrome (the roundtable tab). `both` lists it in the top nav and the settings rail.',
+      },
+      {
+        name: 'navOrder',
+        requirement: 'optional',
+        type: 'number',
+        doc: 'Position in the top nav, ascending. Used when place is nav or both.',
+      },
+      {
+        name: 'settingsOrder',
+        requirement: 'optional',
+        type: 'number',
+        doc: 'Position in the settings rail, ascending. Used when place is settings or both.',
       },
     ],
     ownerProps: [
@@ -2263,11 +2288,14 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     occupants: [
       'client-ui-agent-preset AgentPresetSection id \'agent-presets\'',
       'client-ui-assets AssetsPage id \'research-assets\'',
+      'client-ui-automation AutomationPage id \'automation\'',
+      'client-ui-desk DeskPage id \'desk\'',
       'client-ui-pages SchedulePage id \'schedule\'',
       'client-ui-pages DataEnvPage id \'data-env\'',
       'client-ui-pages HelpPage id \'help\'',
       'client-ui-projects ProjectsPage id \'projects\'',
       'client-ui-roundtable RoundtablePage id \'roundtable\'',
+      'client-ui-settings-automation AutomationSection id \'automation-settings\'',
       'client-ui-settings-general GeneralSection id \'general\'',
       'client-ui-settings-mcp McpSection id \'mcp\'',
       'client-ui-settings-models ModelsSection id \'models\'',
@@ -2278,7 +2306,7 @@ export const CLIENT_SLOT_API: readonly ClientSlotEntry[] = [
     ],
     replaceRisk: 'none',
     example: 'return {\n  inject: [\'slots\'],\n  apply(ctx) {\n    ctx.slots.inject(\'settings.section\', () => ctx.slots.register(\n      { name: \'settings.section\', id: \'my-entry\', order: 100, label: \'My entry\' },\n      () => React.createElement(\'div\', null, \'hello\'),\n    ))\n  },\n}',
-    source: 'packages/client/ui-settings/src/client/contract/slots.ts:54',
+    source: 'packages/client/ui-settings/src/client/contract/slots.ts:58',
   },
   {
     key: 'settings.trigger',

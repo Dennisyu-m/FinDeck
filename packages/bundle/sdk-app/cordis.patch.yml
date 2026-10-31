@@ -1,5 +1,8 @@
 # The SDK application over dsh-base. Stdout belongs exclusively to JSON-RPC.
 
+- id: automation-runner
+  disabled: true
+
 - id: system-prompt
   config:
     personaSuffix: Your working directory is {{cwd}}.

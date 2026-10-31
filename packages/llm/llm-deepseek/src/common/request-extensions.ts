@@ -5,17 +5,20 @@ import type { DeepSeekLlmApiExtensionRequest, PreparedDeepSeekLlmApiExtensions }
 import type { DeepSeekAdapterOptions } from './types.ts'
 
 /**
- * Merge contributions without replacing protocol-owned fields. Preparation and
- * acceptance failures retain the same error category across DeepSeek protocols.
+ * Merge contributions without replacing protocol-owned fields. A rejected
+ * preparation or a base-field collision reports `REQUEST_EXTENSION`. An
+ * acceptance failure is reported and does not fail the request.
  * @param body - serialized protocol request before extension fields.
  * @param options - request identity, purpose, and cancellation.
  * @param prepare - contributor registry captured for this adapter.
+ * @param onUnaccepted - receives an acceptance failure after HTTP 2xx.
  * @returns HTTP payload and a commit to invoke only after a successful HTTP response.
  */
 export async function prepareRequestExtensions(
   body: DeepSeekLlmApiExtensionRequest['body'],
   options: Omit<DeepSeekLlmApiExtensionRequest, 'body'>,
   prepare: DeepSeekAdapterOptions['prepareExtensions'],
+  onUnaccepted: (error: unknown) => void = () => {},
 ): Promise<{ payload: string; accept(): Promise<void> }> {
   let extensions: PreparedDeepSeekLlmApiExtensions
   try {
@@ -34,7 +37,7 @@ export async function prepareRequestExtensions(
       try {
         await extensions.accept()
       } catch (error) {
-        throw new LlmError('DeepSeek request extension acceptance failed', 'REQUEST_EXTENSION', { cause: error })
+        onUnaccepted(error)
       }
     },
   }

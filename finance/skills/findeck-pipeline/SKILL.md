@@ -1,9 +1,9 @@
 ---
 name: findeck-pipeline
 description: >
-  中文：FinDeck 资产流水线（pipeline.yaml）的用法速查——定义格式与校验、步骤脚本协议（marker/参数/产物路径）、手动跑法与 harness 定时跑法、失败语义与版本递增纪律。要"让资产每天自动变新"（定时刷新面板/模型/日报）时读它。
-  English: FinDeck asset-pipeline (pipeline.yaml) reference — definition format and validation, the step-script protocol (markers, parameters, artifact paths), manual and harness-scheduled runs, failure semantics, and the version-increment discipline. Read it to make an asset refresh itself daily.
-whenToUse: 用户要定义/修改一条资产流水线、手动跑一次流水线、把流水线挂成定时任务，或流水线步骤失败要排查时。
+  中文：FinDeck 资产流水线（pipeline.yaml）的用法速查——定义格式与校验、步骤脚本协议、手动跑法、由 automation-runner 按 trigger 自动调度、失败语义与版本递增纪律。自动调度要求 dsh web 正在运行。
+  English: FinDeck asset-pipeline (pipeline.yaml) reference — definition, the step-script protocol, manual runs, automation-runner scheduling from the yaml trigger, failure semantics, and version increments. Automatic runs require a running dsh web.
+whenToUse: 用户要定义或修改一条资产流水线、查看定时任务、立即跑一次，或流水线步骤失败要排查时。不要用 schedule_create 跑流水线。
 ---
 
 # FinDeck 资产流水线
@@ -111,21 +111,34 @@ finance/python/.venv/Scripts/python.exe -m findeck.pipeline --status 20260919190
   只是执行发生在分离子进程里。
 - 进程被杀时记录会停在 `running`（分离子进程的已知限制），目前没有取消接口。
 
-## 4. 定时跑法（harness schedule）
+## 4. 定时触发（automation-runner）
 
-用 `schedule_create` 建一个 cron 会话触发流水线（不要自己写系统 cron/计划任务），
-定时消息要把流水线路径写清楚，示例：
+`dsh web` 在跑时，宿主插件 `automation-runner` 读取 `finance/pipelines/*.yaml`，按文件里的 `trigger` 到点执行 `python -m findeck.pipeline run`。会话关着也会跑。`dsh-schedule` 的 `schedule_create` 只往当前会话投提醒，不能跑流水线，也不接受 cron。
 
+`trigger` 三种：
+
+- `{ kind: cron, schedule: "0 17 * * 1-5" }`：五段 cron，按运行 `dsh web` 那台机器的本地时区。
+- `{ kind: interval, everySeconds: 3600 }`：固定间隔，单位秒，正整数。没有运行记录时，先等满一个间隔才第一次触发。
+- `{ kind: manual }`：不自动跑，只能手动或在定时任务页立即运行。
+
+`daily-refresh` 是 `{ kind: cron, schedule: "0 17 * * 1-5" }`（收盘后、周一至周五）。
+`weekly-healthcheck` 是 `{ kind: cron, schedule: "0 9 * * 1" }`（每周一 9 点）。
+
+新增或修改 `trigger` 后，下一次启动 `dsh web` 才重新读 yaml。正在跑的进程不会热加载流水线文件。
+
+### 4.1 查看与立即运行
+
+- **定时任务页**（侧栏「定时任务」，不是「会话提醒」）：每个任务的触发方式、上次运行时间与结果（含退出码、是否超时）、下次触发时间。点「立即运行」马上跑这一条。
+- **运行记录**：`<资产库>/pipeline-runs/<name>.jsonl`。Python 按步骤写 `ok`/`failed` 行；执行器在进程结束后再追加一行，带 `exitCode`、`timedOut`、`signal`、`stderrTail`。同一任务已在跑时再触发，这一行的 `status` 是 `skipped`，不会再起一个进程。失败不自动重试。
+
+服务没开时，要刷新资产仍然可以手动跑（第 3 节）：
+
+```sh
+cd <仓库根>
+finance/python/.venv/Scripts/python.exe -m findeck.pipeline run finance/pipelines/<name>.yaml
 ```
-运行 finance/pipelines/daily-refresh.yaml（python -m findeck.pipeline run ...，仓库根为 cwd），
-并汇报产出资产版本（index.json 里的 vN）与运行记录。
-```
 
-`daily-refresh` 自身的 `trigger` 声明为 `{ kind: cron, schedule: "0 17 * * 1-5" }`（收盘后、周一至周五）；
-`trigger` 是**给人和 AI 看的约定**，真正触发靠 harness 的定时任务——两边要写一致。
-提醒：定时任务只投递给存活会话，用户打开会话后才会触发。
-
-### 4.1 每周体检（weekly-healthcheck）
+### 4.2 每周体检（weekly-healthcheck）
 
 `finance/pipelines/weekly-healthcheck.yaml`（`trigger: {kind: cron, schedule: "0 9 * * 1"}`，每周一 9 点）
 一步跑完资产库体检：`kind=dataset` 全量 `preview` 探活、按 `freshness` 映射判过期、
@@ -136,16 +149,6 @@ finance/python/.venv/Scripts/python.exe -m findeck.pipeline --status 20260919190
 ```sh
 cd <仓库根>
 finance/python/.venv/Scripts/python.exe -m findeck.pipeline run finance/pipelines/weekly-healthcheck.yaml
-```
-
-挂成定时任务的 `schedule_create` 实例（`at` 用 RFC 3339 或"日期+时间+时区"，`every` 用 cron 表达式）：
-
-```
-[R11] 定时任务
-模式: Work 模式
-流程: 运行 finance/pipelines/weekly-healthcheck.yaml
-任务: 跑 weekly-healthcheck（python -m findeck.pipeline run ...，仓库根为 cwd），
-     汇报 asset-health-report 的新版本号、活物率、探活失败/过期/死资产清单。
 ```
 
 体检报告只是快照：报告里的"总资产数/活物率"不含本次体检自己刚产出的那个版本，属预期。

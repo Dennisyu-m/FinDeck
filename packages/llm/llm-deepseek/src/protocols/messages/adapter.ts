@@ -35,6 +35,8 @@ export interface AdapterDependencies {
   prepareExtensions: DeepSeekAdapterOptions['prepareExtensions']
   /** Report discarded replay metadata without exposing durable content or signatures. */
   onReplayDegrade?: (detail: { provider: string; model: string; reason: string }) => void
+  /** Report an extension acceptance failure after HTTP 2xx; the request continues. */
+  onExtensionsUnaccepted?: (detail: { provider: string; model: string; error: unknown }) => void
 }
 
 /** DeepSeek provider using Messages content and native thinking replay. */
@@ -79,9 +81,10 @@ export class DeepSeekMessagesAdapter extends LlmAdapter {
       throw new LlmError('DeepSeek Messages transport failed', 'TRANSPORT', { cause: error })
     } finally {
       consumer.abort()
-      try { await iterator.return(undefined) } catch (_abortedRequestCleanup) {
-        // The request already settled; aborting its reader cannot replace that outcome.
-      }
+      // The abort above owns the socket teardown. A demand the deadline abandoned
+      // can stay pending forever, and this generator queues its own return behind
+      // that demand, so awaiting the drain would re-hang the settled outcome.
+      void iterator.return(undefined).catch(() => {})
     }
   }
 
@@ -117,7 +120,9 @@ export class DeepSeekMessagesAdapter extends LlmAdapter {
         signal,
         ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
         ...options.purpose === undefined ? {} : { purpose: options.purpose },
-      }, this.dependencies.prepareExtensions)
+      }, this.dependencies.prepareExtensions, (error) => {
+        this.dependencies.onExtensionsUnaccepted?.({ provider: options.provider, model: options.model, error })
+      })
       signal.throwIfAborted()
       const response = await fetch(`${messagesApiRoot(connection.baseURL)}/messages`, {
         method: 'POST', signal, body: extensions.payload, redirect: 'error',
